@@ -1,0 +1,22 @@
+{
+    "name": "MoleculeShapes.Tests",
+    "rootNamespace": "Molecule_Shapes.Tests",
+    "references": [
+        "MoleculeShapes",
+        "Unity.Mathematics"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
