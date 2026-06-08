@@ -9,7 +9,6 @@
 
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using Unity.Mathematics;
 using Molecule_Shapes.Model;
 
@@ -29,7 +28,10 @@ namespace Molecule_Shapes.View
         private const float SemicircleAngleDeg = 178.96f;
 
         [Header("Sector appearance")]
+        [Tooltip("Outer radius of the angle sector (model units).")]
         [SerializeField] private float displayRadius = 4f;
+        [Tooltip("Inner radius - set just outside the central atom's visible radius so the sector doesn't intersect it.")]
+        [SerializeField] private float innerRadius = 1.5f;
         [SerializeField, Range(8, 64)] private int sectorSegments = 24;
         [SerializeField] private Color sectorColor = new Color(1f, 0.9f, 0.3f, 0.55f);
 
@@ -69,8 +71,8 @@ namespace Molecule_Shapes.View
             public Material LineMaterial;
         }
 
-        // Reused buffer for arc points; resized on demand.
-        private Vector3[] _arcPoints;
+        // Reused buffer for arc directions (unit vectors); mesh/line scale them per pass.
+        private Vector3[] _arcDirs;
 
         private void Awake()
         {
@@ -78,11 +80,9 @@ namespace Molecule_Shapes.View
             _camera = Camera.main;
         }
 
-        private void Update()
-        {
-            Keyboard kb = Keyboard.current;
-            if (kb != null && kb.aKey.wasPressedThisFrame) ToggleVisible();
-        }
+        // No keyboard handler here. The 'A' key was removed because the XR Device Simulator uses A
+        // for strafing left; the angle toggle lives on the UI panel's "Toggle Angles" button via
+        // ToggleVisible(), which both the desktop UI and (later) a VR UI button can drive.
 
         public void ToggleVisible()
         {
@@ -97,7 +97,13 @@ namespace Molecule_Shapes.View
         private void LateUpdate()
         {
             _labels.Clear();
-            if (!_visible || _controller == null || _controller.Molecule == null || _camera == null) return;
+            if (!_visible || _controller == null || _controller.Molecule == null) return;
+
+            // Re-resolve every frame. With XR (Device Simulator or a real headset), the active camera
+            // can change after Awake when an XR tracked camera takes over Camera.main, leaving a
+            // cached reference pointing at a disabled/zeroed camera.
+            if (_camera == null || !_camera.isActiveAndEnabled) _camera = Camera.main;
+            if (_camera == null) return;
 
             VsepRMolecule molecule = _controller.Molecule;
             var atoms = molecule.RadialAtoms;
@@ -159,7 +165,7 @@ namespace Molecule_Shapes.View
 
                     SectorView sv = GetOrCreateSector(pairIndex);
                     sv.Go.SetActive(true);
-                    BuildArc(midpointUnit, planarUnit, halfAngle, displayRadius);
+                    BuildArc(midpointUnit, planarUnit, halfAngle);
                     PopulateSectorMesh(sv.Mesh);
                     PopulateLineRenderer(sv.Line);
                     SetSectorColor(sv.Material, sectorColor, opacity);
@@ -202,34 +208,53 @@ namespace Molecule_Shapes.View
             return ((long)lo << 32) | (uint)hi;
         }
 
-        // Compute the arc points (in local space) once; mesh and line both consume them.
-        private void BuildArc(Vector3 midUnit, Vector3 planarUnit, float halfAngle, float radius)
+        // Compute unit direction vectors along the arc once; mesh and line scale them independently
+        // (annular sector mesh uses inner + outer; the LineRenderer uses outer only).
+        private void BuildArc(Vector3 midUnit, Vector3 planarUnit, float halfAngle)
         {
             int n = sectorSegments;
-            if (_arcPoints == null || _arcPoints.Length != n + 1) _arcPoints = new Vector3[n + 1];
+            if (_arcDirs == null || _arcDirs.Length != n + 1) _arcDirs = new Vector3[n + 1];
             for (int s = 0; s <= n; s++)
             {
                 float t = (s / (float)n) * 2f - 1f; // -1..+1
                 float angle = t * halfAngle;
-                Vector3 dir = Mathf.Cos(angle) * midUnit + Mathf.Sin(angle) * planarUnit;
-                _arcPoints[s] = dir * radius;
+                _arcDirs[s] = Mathf.Cos(angle) * midUnit + Mathf.Sin(angle) * planarUnit;
             }
         }
 
+        // Annular sector: a strip of quads between an inner arc and an outer arc, so the sector
+        // never intersects the central atom and has no straight radial edges visible inside bonds.
         private void PopulateSectorMesh(Mesh mesh)
         {
             int n = sectorSegments;
-            var verts = new Vector3[n + 2];
-            verts[0] = Vector3.zero;
-            for (int s = 0; s <= n; s++) verts[s + 1] = _arcPoints[s];
+            float rInner = Mathf.Max(0f, innerRadius);
+            float rOuter = Mathf.Max(rInner + 0.001f, displayRadius);
 
-            var tris = new int[n * 3];
+            var verts = new Vector3[2 * (n + 1)];
+            for (int s = 0; s <= n; s++)
+            {
+                verts[s]             = _arcDirs[s] * rInner;        // inner ring
+                verts[(n + 1) + s]   = _arcDirs[s] * rOuter;        // outer ring
+            }
+
+            // Two triangles per segment: (inner_s, outer_s, outer_{s+1}) and (inner_s, outer_{s+1}, inner_{s+1}).
+            var tris = new int[6 * n];
             for (int s = 0; s < n; s++)
             {
-                tris[s * 3 + 0] = 0;
-                tris[s * 3 + 1] = s + 1;
-                tris[s * 3 + 2] = s + 2;
+                int innerS  = s;
+                int outerS  = (n + 1) + s;
+                int innerS1 = s + 1;
+                int outerS1 = (n + 1) + s + 1;
+
+                int i = s * 6;
+                tris[i + 0] = innerS;
+                tris[i + 1] = outerS;
+                tris[i + 2] = outerS1;
+                tris[i + 3] = innerS;
+                tris[i + 4] = outerS1;
+                tris[i + 5] = innerS1;
             }
+
             mesh.Clear();
             mesh.vertices = verts;
             mesh.triangles = tris;
@@ -243,9 +268,16 @@ namespace Molecule_Shapes.View
 
             int n = sectorSegments;
             lr.positionCount = n + 1;
-            for (int s = 0; s <= n; s++) lr.SetPosition(s, _arcPoints[s]);
-            lr.startWidth = arcBorderWidth;
-            lr.endWidth = arcBorderWidth;
+            for (int s = 0; s <= n; s++) lr.SetPosition(s, _arcDirs[s] * displayRadius);
+
+            // LineRenderer widths are in WORLD units and are NOT scaled by the transform's local scale,
+            // unlike the sector mesh (which is in local space and scales with the parent). Compensate
+            // here so arcBorderWidth means "thickness relative to the molecule" regardless of whether
+            // the parent transform is at desktop scale 1 or VR scale 0.03.
+            float worldScale = Mathf.Max(1e-4f, transform.lossyScale.x);
+            float effectiveWidth = arcBorderWidth * worldScale;
+            lr.startWidth = effectiveWidth;
+            lr.endWidth = effectiveWidth;
         }
 
         private SectorView GetOrCreateSector(int index)
@@ -270,7 +302,10 @@ namespace Molecule_Shapes.View
                 // LineRenderer on the same GameObject so it inherits the local transform of the sector.
                 var lr = go.AddComponent<LineRenderer>();
                 lr.useWorldSpace = false;
-                lr.numCapVertices = 2;
+                // numCapVertices > 0 creates a closed polygonal "lid" at each end of the line which,
+                // viewed end-on, looks like a hexagon at each arc terminus. The arc is short and
+                // radial; no decorative cap needed.
+                lr.numCapVertices = 0;
                 lr.alignment = LineAlignment.View;
                 lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 lr.receiveShadows = false;
@@ -282,13 +317,32 @@ namespace Molecule_Shapes.View
             return _pool[index];
         }
 
+        // URP/Unlit instead of Sprites/Default. Sprites/Default is a built-in-pipeline shader and
+        // doesn't ship a Vulkan/Android variant; on URP+Android targets it falls back to the error
+        // shader (renders as red/magenta), which is what produced the "red circle" rim.
         private static Material CreateLineMaterial()
         {
-            // Sprites/Default supports vertex color alpha and renders LineRenderer reliably in URP.
-            Shader shader = Shader.Find("Sprites/Default");
-            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
+            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Sprites/Default");
+            if (shader == null) shader = Shader.Find("Standard");
+
             var mat = new Material(shader);
-            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent + 1; // draw on top of sector
+
+            // Same alpha-blend transparent setup the sector uses, so the rim can fade with it.
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
+            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
+            if (mat.HasProperty("_AlphaClip")) mat.SetFloat("_AlphaClip", 0f);
+            if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
+            if (mat.HasProperty("_QueueControl")) mat.SetFloat("_QueueControl", 1f);
+
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.DisableKeyword("_SURFACE_TYPE_OPAQUE");
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent + 1; // sit just above the sector
             return mat;
         }
 
