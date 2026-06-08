@@ -16,13 +16,19 @@ namespace Molecule_Shapes.View
         [Tooltip("Camera whose right axis is used for vertical (pitch) drags. Defaults to Camera.main.")]
         [SerializeField] private Camera viewCamera;
 
+        private MoleculeDragController _dragController;
+
         private void Awake()
         {
             if (viewCamera == null) viewCamera = Camera.main;
+            _dragController = GetComponent<MoleculeDragController>();
         }
 
         private void Update()
         {
+            // When a pair group is being dragged, atom motion is the only thing the click should do.
+            if (_dragController != null && _dragController.IsDragging) return;
+
             Mouse mouse = Mouse.current;
             if (mouse == null || !mouse.leftButton.isPressed) return;
 

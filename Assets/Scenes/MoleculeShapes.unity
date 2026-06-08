@@ -156,7 +156,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.15686275, g: 0.15686275, b: 0.15686275, a: 0}
+  m_BackGroundColor: {r: 0.21960786, g: 0.21960786, b: 0.21960786, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -394,6 +394,9 @@ GameObject:
   - component: {fileID: 484111676}
   - component: {fileID: 484111675}
   - component: {fileID: 484111677}
+  - component: {fileID: 484111678}
+  - component: {fileID: 484111679}
+  - component: {fileID: 484111680}
   m_Layer: 0
   m_Name: Molecule
   m_TagString: Untagged
@@ -414,11 +417,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.MoleculeController
   initialAtomCount: 4
-  atomDiameter: 2.5
-  bondThickness: 1
+  atomDiameter: 4.5
+  bondThickness: 1.5
   centralColor: {r: 0.85, g: 0.3, b: 0.2, a: 1}
   radialColor: {r: 0.3, g: 0.5, b: 0.85, a: 1}
   bondColor: {r: 0.7, g: 0.7, b: 0.7, a: 1}
+  lonePairColor: {r: 1, g: 0.9558605, b: 0.39308167, a: 0.45}
+  lonePairDiameter: 5
+  lonePairElongation: 1.4
   maxTimestep: 0.025
 --- !u!4 &484111676
 Transform:
@@ -449,6 +455,61 @@ MonoBehaviour:
   m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.MoleculeRotator
   sensitivity: 0.3
   viewCamera: {fileID: 0}
+--- !u!114 &484111678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25fc69be2207a694f9720b85768454e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.BondAngleOverlay
+  displayRadius: 4.5
+  sectorSegments: 20
+  sectorColor: {r: 0.91764706, g: 0.62352943, b: 0.72156864, a: 0.2901961}
+  showArcBorder: 1
+  arcBorderColor: {r: 0.8784314, g: 0.5180796, b: 0.18579161, a: 0.7490196}
+  arcBorderWidth: 0.16
+  showLabels: 1
+  labelFontSize: 16
+  minOpacityForLabel: 0.15
+  labelColor: {r: 1, g: 1, b: 1, a: 1}
+  showGeometryName: 1
+  geometryFontSize: 22
+--- !u!114 &484111679
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b70b9741e6e043f4d9bce1aa72f768fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.MoleculeUiController
+  panelPadding: 14
+  buttonHeight: 32
+  rowSpacing: 8
+  buttonFontSize: 15
+  labelFontSize: 14
+--- !u!114 &484111680
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c30fa258e2982be43b050471a91c0732, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.MoleculeDragController
+  atomPickRadius: 2.5
+  lonePairPickRadius: 2.5
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0

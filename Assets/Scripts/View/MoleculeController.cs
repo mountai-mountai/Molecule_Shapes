@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Unity.Mathematics;
 using Molecule_Shapes.Model;
+// Aliased so calls like ModelModelMolecule.MaxConnections aren't shadowed by this class's `Molecule` property.
+using ModelMolecule = Molecule_Shapes.Model.Molecule;
 
 namespace Molecule_Shapes.View
 {
@@ -21,12 +23,20 @@ namespace Molecule_Shapes.View
         [SerializeField] private Color radialColor = new Color(0.30f, 0.50f, 0.85f);
         [SerializeField] private Color bondColor = new Color(0.7f, 0.7f, 0.7f);
 
+        [Header("Lone pairs")]
+        [SerializeField] private Color lonePairColor = new Color(0.6f, 0.5f, 0.9f, 0.45f);
+        [SerializeField] private float lonePairDiameter = 2.0f;
+        [SerializeField] private float lonePairElongation = 1.6f;
+
         [Header("Simulation")]
         [SerializeField] private float maxTimestep = 0.025f;
 
         private VsepRMolecule _molecule;
         private readonly Dictionary<int, GameObject> _atomViews = new();
         private readonly List<(Bond bond, BondView view)> _bondViews = new();
+
+        // Read-only access for other view components (e.g. BondAngleOverlay).
+        public VsepRMolecule Molecule => _molecule;
 
         // Asymmetric starting directions so atoms visibly rearrange into the ideal geometry.
         private static readonly float3[] StartDirections =
@@ -85,41 +95,81 @@ namespace Molecule_Shapes.View
             if (kb.digit4Key.wasPressedThisFrame) SetBondedAtomCount(4);
             if (kb.digit5Key.wasPressedThisFrame) SetBondedAtomCount(5);
             if (kb.digit6Key.wasPressedThisFrame) SetBondedAtomCount(6);
+
+            if (kb.lKey.wasPressedThisFrame) AddLonePair();
+            if (kb.kKey.wasPressedThisFrame) RemoveLastLonePair();
         }
 
-        public void AddBondedAtom()
+        public bool AddBondedAtom()
         {
-            if (_molecule.RadialGroups.Count >= Molecule.MaxConnections) return;
+            if (_molecule.RadialGroups.Count >= ModelMolecule.MaxConnections) return false;
 
-            // Spawn in a random non-degenerate direction; the attractor sorts out the final geometry.
+            var atom = new PairGroup(RandomDirection() * PairGroup.BondedPairDistance, isLonePair: false);
+            _molecule.AddGroupAndBond(atom, _molecule.CentralAtom, bondOrder: 1, bondLength: PairGroup.BondedPairDistance);
+            return true;
+        }
+
+        public bool RemoveLastAtom()
+        {
+            var radial = _molecule.RadialAtoms;
+            if (radial.Count == 0) return false;
+            _molecule.RemoveGroup(radial[radial.Count - 1]);
+            return true;
+        }
+
+        // Adds bonded atoms until the count reaches `target` OR no more slots are available
+        // (lone pairs share the same connection budget, so this gracefully stops short instead of looping).
+        public void SetBondedAtomCount(int target)
+        {
+            target = Mathf.Clamp(target, 0, ModelMolecule.MaxConnections);
+            while (_molecule.RadialAtoms.Count < target && AddBondedAtom()) { }
+            while (_molecule.RadialAtoms.Count > target && RemoveLastAtom()) { }
+        }
+
+        public bool AddLonePair()
+        {
+            if (_molecule.RadialGroups.Count >= ModelMolecule.MaxConnections) return false;
+
+            var lonePair = new PairGroup(RandomDirection() * PairGroup.LonePairDistance, isLonePair: true);
+            _molecule.AddGroupAndBond(lonePair, _molecule.CentralAtom, bondOrder: 0, bondLength: PairGroup.LonePairDistance);
+            return true;
+        }
+
+        public bool RemoveLastLonePair()
+        {
+            var lonePairs = _molecule.RadialLonePairs;
+            if (lonePairs.Count == 0) return false;
+            _molecule.RemoveGroup(lonePairs[lonePairs.Count - 1]);
+            return true;
+        }
+
+        // Removes every radial group, leaving only the central atom.
+        public void ResetMolecule()
+        {
+            while (RemoveLastAtom()) { }
+            while (RemoveLastLonePair()) { }
+        }
+
+        // Random non-degenerate unit direction; the attractor sorts out the final geometry.
+        private static float3 RandomDirection()
+        {
             float3 dir = math.normalize(new float3(
                 UnityEngine.Random.Range(-1f, 1f),
                 UnityEngine.Random.Range(-1f, 1f),
                 UnityEngine.Random.Range(-1f, 1f)));
-            if (!math.all(math.isfinite(dir))) dir = new float3(1f, 0f, 0f);
-
-            var atom = new PairGroup(dir * PairGroup.BondedPairDistance, isLonePair: false);
-            _molecule.AddGroupAndBond(atom, _molecule.CentralAtom, bondOrder: 1, bondLength: PairGroup.BondedPairDistance);
-        }
-
-        public void RemoveLastAtom()
-        {
-            var radial = _molecule.RadialAtoms;
-            if (radial.Count == 0) return;
-            _molecule.RemoveGroup(radial[radial.Count - 1]);
-        }
-
-        public void SetBondedAtomCount(int target)
-        {
-            target = Mathf.Clamp(target, 0, Molecule.MaxConnections);
-            while (_molecule.RadialAtoms.Count < target) AddBondedAtom();
-            while (_molecule.RadialAtoms.Count > target) RemoveLastAtom();
+            return math.all(math.isfinite(dir)) ? dir : new float3(1f, 0f, 0f);
         }
 
         // --- View sync ---
 
         private void OnGroupAdded(PairGroup group)
         {
+            if (group.IsLonePair)
+            {
+                CreateLonePairView(group);
+                return;
+            }
+
             var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             go.name = group.IsCentralAtom ? "CentralAtom" : "Atom";
             go.transform.SetParent(transform, worldPositionStays: false);
@@ -130,6 +180,22 @@ namespace Molecule_Shapes.View
 
             go.AddComponent<AtomView>().Bind(group);
             _atomViews[group.Id] = go;
+        }
+
+        private void CreateLonePairView(PairGroup group)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            go.name = "LonePair";
+            go.transform.SetParent(transform, worldPositionStays: false);
+            Destroy(go.GetComponent<Collider>());
+
+            // Replace the auto-assigned URP/Lit material entirely with a fresh URP/Unlit one.
+            // URP/Lit's transparent variant is often stripped at import time, so toggling its
+            // keywords at runtime silently keeps it opaque. URP/Unlit reliably has transparency.
+            go.GetComponent<MeshRenderer>().material = CreateTranslucentMaterial(lonePairColor);
+
+            go.AddComponent<LonePairView>().Initialize(group, lonePairDiameter, lonePairElongation);
+            _atomViews[group.Id] = go; // tracked here so OnGroupRemoved can destroy it
         }
 
         private void OnGroupRemoved(PairGroup group)
@@ -174,6 +240,42 @@ namespace Molecule_Shapes.View
             Material mat = go.GetComponent<MeshRenderer>().material;
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
             if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+        }
+
+        // Creates a fresh alpha-blended translucent material using URP/Unlit (variant always
+        // available) with fallbacks. Color's alpha controls translucency.
+        private static Material CreateTranslucentMaterial(Color color)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard"); // built-in pipeline fallback
+
+            var mat = new Material(shader);
+
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);    // 0 = Opaque, 1 = Transparent
+            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);        // 0 = Alpha blend
+            if (mat.HasProperty("_AlphaClip")) mat.SetFloat("_AlphaClip", 0f);
+            if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
+            if (mat.HasProperty("_QueueControl")) mat.SetFloat("_QueueControl", 1f); // URP 14+: User override
+
+            // Built-in pipeline Standard shader rendering mode.
+            if (mat.HasProperty("_Mode")) mat.SetFloat("_Mode", 3f); // 3 = Transparent
+
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            mat.DisableKeyword("_SURFACE_TYPE_OPAQUE");
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.EnableKeyword("_ALPHABLEND_ON"); // Standard shader blend keyword
+
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+
+            return mat;
         }
     }
 }
