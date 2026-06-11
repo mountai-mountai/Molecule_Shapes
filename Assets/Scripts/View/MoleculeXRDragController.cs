@@ -1,16 +1,23 @@
-// XR equivalent of MoleculeDragController. Same offset-compensation math (a rotation on the
-// constraint sphere that preserves the spatial relationship between click point and atom
-// center), but reads a CONTROLLER ray + index TRIGGER instead of a mouse ray + left button.
+// XR equivalent of MoleculeDragController.
 //
-// Each hand independently can drag an atom or lone pair. The molecule's two-handed GRIP grab
-// (XRGrabInteractable) is on a different button entirely (grip) so they don't directly conflict;
-// don't squeeze grip and trigger on the same controller at the same time.
+// Picking (which atom to grab) uses the controller's RAY - point at the atom, pull trigger.
+// Dragging (moving the grabbed atom) uses the controller's HAND POSITION - the direction from
+// the molecule center to the controller's position drives the atom direction. Move your hand
+// up, atom goes up; move left, atom goes left. This is the kinetic model VR users expect.
+//
+// We don't use ray-sphere projection while dragging because in VR the controller is often
+// INSIDE the constraint sphere (the molecule, scaled to ~0.03, has its sphere only ~30 cm wide),
+// which makes ray-sphere intersection return the far-side exit point and produces sudden jumps.
+//
+// Offset compensation: same Quaternion.FromToRotation(handDir, atomDir) trick from the desktop
+// drag, so the angular relationship between where your hand is and where the atom is gets
+// captured at click time and preserved through the drag.
 //
 // Wired in the Inspector to the Starter Assets' XRI Default Input Actions:
 //   leftTriggerAction  -> XRI LeftHand Interaction / Activate   (index trigger as a button)
 //   rightTriggerAction -> XRI RightHand Interaction / Activate
 // Controller transforms are the LeftHand Controller / RightHand Controller GameObjects under
-// XR Origin / Camera Offset (forward direction is the ray direction).
+// XR Origin / Camera Offset (forward direction is the ray direction, position is the hand pose).
 
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -120,11 +127,13 @@ namespace Molecule_Shapes.View
 
             state.ConstraintRadius = picked.IsLonePair ? PairGroup.LonePairDistance : PairGroup.BondedPairDistance;
 
-            // Same offset-compensation as the desktop drag: record the rotation from
-            // "where the cursor would put the atom" to "where the atom actually is".
-            Vector3 clickDir = CursorDirectionOnConstraintSphere(localOrigin, localDir, state.ConstraintRadius);
+            // Offset compensation: capture the angular relationship between hand and atom at
+            // click time. Hand direction = direction from molecule center to the controller in
+            // local space (not the ray direction). The offset preserves "click point on atom"
+            // through the drag - if you grabbed the atom's edge, the edge stays under your hand.
+            Vector3 handDir = SafeNormalize(localOrigin);
             Vector3 atomDir = SafeNormalize(ToVector3(picked.Position));
-            state.OffsetRotation = Quaternion.FromToRotation(clickDir, atomDir);
+            state.OffsetRotation = Quaternion.FromToRotation(handDir, atomDir);
 
             state.Group = picked;
             state.Group.UserControlled = true;
@@ -133,10 +142,12 @@ namespace Molecule_Shapes.View
         private void UpdateDrag(Transform controller, DragState state)
         {
             Vector3 localOrigin = transform.InverseTransformPoint(controller.position);
-            Vector3 localDir = transform.InverseTransformDirection(controller.forward).normalized;
 
-            Vector3 cursorDir = CursorDirectionOnConstraintSphere(localOrigin, localDir, state.ConstraintRadius);
-            Vector3 atomDir = state.OffsetRotation * cursorDir;
+            // Guard against the controller sitting exactly at the molecule center (direction undefined).
+            if (localOrigin.sqrMagnitude < 1e-4f) return;
+
+            Vector3 handDir = localOrigin.normalized;
+            Vector3 atomDir = state.OffsetRotation * handDir;
 
             Vector3 newPosLocal = atomDir * state.ConstraintRadius;
             state.Group.SetPosition(new float3(newPosLocal.x, newPosLocal.y, newPosLocal.z));
@@ -147,22 +158,6 @@ namespace Molecule_Shapes.View
             if (state.Group == null) return;
             state.Group.UserControlled = false;
             state.Group = null;
-        }
-
-        // Direction from molecule center to where the cursor "projects" onto the constraint sphere.
-        // Falls back to the closest point on the ray when the ray misses (so dragging past the silhouette
-        // keeps moving instead of stalling).
-        private static Vector3 CursorDirectionOnConstraintSphere(Vector3 rayOrigin, Vector3 rayDir, float radius)
-        {
-            if (RaySphereIntersect(rayOrigin, rayDir, Vector3.zero, radius, out float t))
-            {
-                Vector3 hit = rayOrigin + t * rayDir;
-                return SafeNormalize(hit);
-            }
-            float u = -Vector3.Dot(rayOrigin, rayDir);
-            if (u < 0f) u = 0f;
-            Vector3 closest = rayOrigin + u * rayDir;
-            return SafeNormalize(closest);
         }
 
         private static bool RaySphereIntersect(Vector3 rayOrigin, Vector3 rayDir, Vector3 sphereCenter, float radius, out float t)
