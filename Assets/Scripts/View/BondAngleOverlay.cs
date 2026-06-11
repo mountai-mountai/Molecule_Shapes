@@ -40,13 +40,20 @@ namespace Molecule_Shapes.View
         [SerializeField] private Color arcBorderColor = new Color(1f, 0.85f, 0.2f, 1f);
         [SerializeField] private float arcBorderWidth = 0.12f;
 
-        [Header("Labels (OnGUI)")]
+        [Header("Labels (OnGUI - desktop)")]
         [SerializeField] private bool showLabels = true;
         [SerializeField] private int labelFontSize = 14;
         [SerializeField, Range(0f, 1f)] private float minOpacityForLabel = 0.15f;
         [SerializeField] private Color labelColor = Color.white;
 
-        [Header("Geometry name (top-left)")]
+        [Header("Labels (world-space - VR)")]
+        [Tooltip("Render 3D TextMesh labels at each arc midpoint. Use this in VR (OnGUI labels don't show in headsets).")]
+        [SerializeField] private bool showWorldSpaceLabels = false;
+        [Tooltip("Character size of world-space labels (meters in world units, before any parent scale).")]
+        [SerializeField] private float worldLabelCharacterSize = 0.012f;
+        [SerializeField] private int worldLabelFontSize = 80;
+
+        [Header("Geometry name (top-left OnGUI)")]
         [SerializeField] private bool showGeometryName = true;
         [SerializeField] private int geometryFontSize = 22;
 
@@ -61,6 +68,10 @@ namespace Molecule_Shapes.View
         private bool _visible = true;
         private GUIStyle _labelStyle;
         private GUIStyle _geometryStyle;
+
+        // World-space label pool; siblings of the molecule (not parented) so they don't inherit its scale.
+        private readonly List<TextMesh> _worldLabelPool = new();
+        private Font _worldLabelFont;
 
         private class SectorView
         {
@@ -91,6 +102,8 @@ namespace Molecule_Shapes.View
             {
                 for (int i = 0; i < _pool.Count; i++)
                     if (_pool[i] != null) _pool[i].Go.SetActive(false);
+                for (int i = 0; i < _worldLabelPool.Count; i++)
+                    if (_worldLabelPool[i] != null) _worldLabelPool[i].gameObject.SetActive(false);
             }
         }
 
@@ -182,6 +195,73 @@ namespace Molecule_Shapes.View
             // Disable any leftover sectors from a previous higher pair count.
             for (int k = pairIndex; k < _pool.Count; k++)
                 if (_pool[k] != null) _pool[k].Go.SetActive(false);
+
+            UpdateWorldSpaceLabels();
+        }
+
+        private void UpdateWorldSpaceLabels()
+        {
+            if (!showWorldSpaceLabels)
+            {
+                for (int i = 0; i < _worldLabelPool.Count; i++)
+                    if (_worldLabelPool[i] != null) _worldLabelPool[i].gameObject.SetActive(false);
+                return;
+            }
+
+            for (int i = 0; i < _labels.Count; i++)
+            {
+                var lbl = _labels[i];
+                TextMesh tm = GetOrCreateWorldLabel(i);
+                tm.gameObject.SetActive(lbl.opacity >= minOpacityForLabel);
+                if (!tm.gameObject.activeSelf) continue;
+
+                tm.transform.position = lbl.worldMid;
+
+                // Billboard toward camera so the text always reads facing the user.
+                if (_camera != null)
+                {
+                    Vector3 toCam = _camera.transform.position - tm.transform.position;
+                    if (toCam.sqrMagnitude > 1e-6f)
+                    {
+                        // LookRotation sets local +Z to point at the target; TextMesh renders on +Z side.
+                        // We want the camera to be on +Z, so look FROM the label TOWARD the camera.
+                        tm.transform.rotation = Quaternion.LookRotation(-toCam, Vector3.up);
+                    }
+                }
+
+                tm.text = $"{lbl.angleDeg:F1}°";
+
+                Color c = labelColor;
+                c.a = labelColor.a * Mathf.Clamp01(lbl.opacity);
+                tm.color = c;
+            }
+
+            // Hide any pooled labels not used this frame.
+            for (int i = _labels.Count; i < _worldLabelPool.Count; i++)
+                if (_worldLabelPool[i] != null) _worldLabelPool[i].gameObject.SetActive(false);
+        }
+
+        private TextMesh GetOrCreateWorldLabel(int index)
+        {
+            while (_worldLabelPool.Count <= index)
+            {
+                if (_worldLabelFont == null) _worldLabelFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+                var go = new GameObject($"AngleLabel_{_worldLabelPool.Count}");
+                // No parent - keeps the label at world scale regardless of the molecule's transform scale.
+
+                TextMesh tm = go.AddComponent<TextMesh>();
+                tm.anchor = TextAnchor.MiddleCenter;
+                tm.alignment = TextAlignment.Center;
+                tm.fontSize = worldLabelFontSize;
+                tm.characterSize = worldLabelCharacterSize;
+                tm.color = labelColor;
+                tm.font = _worldLabelFont;
+                if (_worldLabelFont != null) go.GetComponent<MeshRenderer>().material = _worldLabelFont.material;
+
+                _worldLabelPool.Add(tm);
+            }
+            return _worldLabelPool[index];
         }
 
         private void DisableSector(int index)

@@ -168,6 +168,95 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!1 &374412501
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 374412504}
+  - component: {fileID: 374412503}
+  - component: {fileID: 374412502}
+  m_Layer: 0
+  m_Name: EventSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &374412502
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 374412501}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ab68ce6587aab0146b8dabefbd806791, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.UI.XRUIInputModule
+  m_SendPointerHoverToParent: 1
+  m_ClickSpeed: 0.3
+  m_MoveDeadzone: 0.6
+  m_RepeatDelay: 0.5
+  m_RepeatRate: 0.1
+  m_TrackedDeviceDragThresholdMultiplier: 2
+  m_TrackedScrollDeltaMultiplier: 5
+  m_NonTrackedScrollDeltaMultiplier: 6
+  m_BypassUIToolkitEvents: 0
+  m_PrioritizeDistanceSorting: 0
+  m_ActiveInputMode: 0
+  m_EnableXRInput: 1
+  m_EnableMouseInput: 1
+  m_EnableTouchInput: 1
+  m_EnableGamepadInput: 1
+  m_EnableJoystickInput: 1
+  m_PointAction: {fileID: 0}
+  m_LeftClickAction: {fileID: 0}
+  m_MiddleClickAction: {fileID: 0}
+  m_RightClickAction: {fileID: 0}
+  m_ScrollWheelAction: {fileID: 0}
+  m_NavigateAction: {fileID: 0}
+  m_SubmitAction: {fileID: 0}
+  m_CancelAction: {fileID: 0}
+  m_EnableBuiltinActionsAsFallback: 1
+  m_HorizontalAxis: Horizontal
+  m_VerticalAxis: Vertical
+  m_SubmitButton: Submit
+  m_CancelButton: Cancel
+--- !u!114 &374412503
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 374412501}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76c392e42b5098c458856cdf6ecaaaa1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.EventSystems.EventSystem
+  m_FirstSelected: {fileID: 0}
+  m_sendNavigationEvents: 1
+  m_DragThreshold: 10
+--- !u!4 &374412504
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 374412501}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.041302636, y: 1.2892082, z: 0.26310852}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -313,6 +402,7 @@ GameObject:
   - component: {fileID: 484111683}
   - component: {fileID: 484111682}
   - component: {fileID: 484111684}
+  - component: {fileID: 484111685}
   m_Layer: 0
   m_Name: Molecule
   m_TagString: Untagged
@@ -390,10 +480,13 @@ MonoBehaviour:
   showArcBorder: 1
   arcBorderColor: {r: 0.8784314, g: 0.5180796, b: 0.18579161, a: 0.7490196}
   arcBorderWidth: 0.16
-  showLabels: 1
+  showLabels: 0
   labelFontSize: 16
   minOpacityForLabel: 0.15
-  labelColor: {r: 1, g: 1, b: 1, a: 1}
+  labelColor: {r: 1, g: 1, b: 1, a: 0.7058824}
+  showWorldSpaceLabels: 1
+  worldLabelCharacterSize: 0.01
+  worldLabelFontSize: 22
   showGeometryName: 1
   geometryFontSize: 22
 --- !u!114 &484111679
@@ -623,6 +716,30 @@ MonoBehaviour:
   rightTriggerAction: {fileID: 83097790271614945, guid: c348712bda248c246b8c49b3db54643f, type: 3}
   atomPickRadius: 2.2
   lonePairPickRadius: 2.4
+--- !u!114 &484111685
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38b65edb6f705b2409fa6963c722a2a1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.MoleculeXRUiPanel
+  panelWorldOffset: {x: 0.35, y: 0.2, z: 0}
+  panelSizeMeters: {x: 0.32, y: 0.6}
+  canvasScale: 0.001
+  panelBackground: {r: 0.05, g: 0.07, b: 0.1, a: 0.92}
+  buttonNormal: {r: 0.2, g: 0.25, b: 0.32, a: 1}
+  buttonHover: {r: 0.3, g: 0.4, b: 0.55, a: 1}
+  buttonPressed: {r: 0.45, g: 0.6, b: 0.85, a: 1}
+  textColor: {r: 1, g: 1, b: 1, a: 1}
+  titleFontSize: 28
+  sectionFontSize: 20
+  buttonFontSize: 20
+  presetButtonFontSize: 22
 --- !u!1001 &623712241
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -867,3 +984,4 @@ SceneRoots:
   - {fileID: 1908819432}
   - {fileID: 623712241}
   - {fileID: 657605119}
+  - {fileID: 374412504}
