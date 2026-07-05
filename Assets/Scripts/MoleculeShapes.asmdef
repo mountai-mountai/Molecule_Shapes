@@ -3,7 +3,8 @@
     "rootNamespace": "Molecule_Shapes",
     "references": [
         "Unity.Mathematics",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

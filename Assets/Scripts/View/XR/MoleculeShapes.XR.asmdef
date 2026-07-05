@@ -1,0 +1,26 @@
+{
+    "name": "MoleculeShapes.XR",
+    "rootNamespace": "Molecule_Shapes.View",
+    "references": [
+        "MoleculeShapes",
+        "Unity.XR.Interaction.Toolkit",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "XR_INTERACTION_TOOLKIT_PRESENT"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.interaction.toolkit",
+            "expression": "2.0.0",
+            "define": "XR_INTERACTION_TOOLKIT_PRESENT"
+        }
+    ],
+    "noEngineReferences": false
+}

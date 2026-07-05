@@ -15,6 +15,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR.Interaction.Toolkit.UI;
+using Molecule_Shapes.Game;
 
 namespace Molecule_Shapes.View
 {
@@ -40,22 +41,73 @@ namespace Molecule_Shapes.View
         [SerializeField] private int buttonFontSize = 20;
         [SerializeField] private int presetButtonFontSize = 22;
 
+        [Header("Preset count buttons (1-6)")]
+        [Tooltip("Show the '1-6 set bonded count' shortcut row at all.")]
+        [SerializeField] private bool showPresetButtons = true;
+        [Tooltip("Hide the preset shortcut row while a Build challenge is active, so the AXE number " +
+                 "can't be used as a one-press shortcut - the player must add/remove atoms deliberately.")]
+        [SerializeField] private bool hidePresetsDuringChallenge = true;
+
         private MoleculeController _controller;
         private BondAngleOverlay _overlay;
+        private GameSessionController _gameController;
         private Font _font;
         private GameObject _canvasGO;
+        private GameObject _presetRow;
+        private GameObject _presetSectionLabel;
+        private bool _gameSubscribed;
 
         private void Awake()
         {
             _controller = GetComponent<MoleculeController>();
             _overlay = GetComponent<BondAngleOverlay>();
+            _gameController = GetComponent<GameSessionController>();
             _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             BuildPanel();
         }
 
+        private void Start()
+        {
+            SubscribeToGame();          // GameSessionController.Session exists after its Awake
+            UpdatePresetVisibility();
+        }
+
         private void OnDestroy()
         {
+            UnsubscribeFromGame();
             if (_canvasGO != null) Destroy(_canvasGO);
+        }
+
+        // --- Preset-row visibility (anti-shortcut) --------------------------------------------------
+
+        private GameSession Game => _gameController != null ? _gameController.Session : null;
+
+        private void SubscribeToGame()
+        {
+            if (_gameSubscribed || Game == null) return;
+            Game.ChallengeStarted += _ => UpdatePresetVisibility();
+            Game.ChallengeSolved += (_, __) => UpdatePresetVisibility();
+            Game.ChallengeTimedOut += _ => UpdatePresetVisibility();
+            Game.StateChanged += UpdatePresetVisibility;
+            _gameSubscribed = true;
+        }
+
+        private void UnsubscribeFromGame()
+        {
+            // Lambdas above aren't individually removable; the whole panel is destroyed with the scene,
+            // so there's nothing to leak. Kept as a hook for symmetry / future explicit handlers.
+        }
+
+        private void UpdatePresetVisibility()
+        {
+            bool activeBuild = Game != null
+                               && Game.Mode == GameMode.Challenge
+                               && Game.Current is { Task: TaskMode.Build }
+                               && !Game.CurrentSolved;
+
+            bool visible = showPresetButtons && !(hidePresetsDuringChallenge && activeBuild);
+            if (_presetRow != null) _presetRow.SetActive(visible);
+            if (_presetSectionLabel != null) _presetSectionLabel.SetActive(visible);
         }
 
         private void BuildPanel()
@@ -122,11 +174,13 @@ namespace Molecule_Shapes.View
             CreateButton(container.transform, "+ Lone Pair",   () => _controller.AddLonePair());
             CreateButton(container.transform, "− Lone Pair",   () => _controller.RemoveLastLonePair());
 
-            CreateLabel(container.transform, "Set bonded count:", sectionFontSize, FontStyle.Normal, TextAnchor.MiddleLeft, height: 32);
+            Text presetLabel = CreateLabel(container.transform, "Set bonded count:", sectionFontSize, FontStyle.Normal, TextAnchor.MiddleLeft, height: 32);
+            _presetSectionLabel = presetLabel.gameObject;
 
             // Horizontal row of 1..6
             var row = new GameObject("Presets", typeof(RectTransform));
             row.transform.SetParent(container.transform, false);
+            _presetRow = row;
             var rowLayout = row.AddComponent<HorizontalLayoutGroup>();
             rowLayout.spacing = 6;
             rowLayout.childControlWidth = true;
