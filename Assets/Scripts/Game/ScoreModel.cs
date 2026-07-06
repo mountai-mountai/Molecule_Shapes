@@ -31,6 +31,16 @@ namespace Molecule_Shapes.Game
         // A miss / timeout / skip breaks the streak but doesn't subtract score.
         public void BreakStreak() => Streak = 0;
 
+        // Deducts points for a wrong answer, never letting the total drop below 0. Returns the amount
+        // actually removed (may be less than requested if the total hit the floor).
+        public int Penalize(int points)
+        {
+            int p = System.Math.Max(0, points);
+            int removed = System.Math.Min(Total, p);
+            Total -= removed;
+            return removed;
+        }
+
         public void Reset()
         {
             Total = 0;

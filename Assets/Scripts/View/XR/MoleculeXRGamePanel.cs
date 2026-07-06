@@ -1,15 +1,11 @@
-// World-space game HUD for the VR scene. Companion to MoleculeXRUiPanel (the molecule-editing panel):
-// this one drives the gamified layer via GameSessionController and shows live score/timer/prompt.
-// Built programmatically (no scene authoring) and placed at the scene root so it doesn't move when the
-// molecule is grabbed. Controller-ray clicks come for free via the TrackedDeviceGraphicRaycaster.
-//
-// Layout (top to bottom):
-//   title | "Mode" subtitle + selector | ("Level" subtitle + selector) | Start / Stop |
-//   prompt | score+streak+timer | answer buttons (Identify only, auto-sized) | New + Hint | feedback
-//
-// Nearly every size / font / colour is exposed in the Inspector for on-the-fly tuning.
+// World-space game HUD for the VR scene. Drives the gamified layer via GameSessionController and shows
+// live score/timer/prompt. The LOOK comes from a shared PanelStyle theme; placement/axis, layout sizes,
+// and content options are per-panel. Editing any field while playing rebuilds the panel live (or
+// right-click -> Rebuild Panel).
 
 using System;
+using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR.Interaction.Toolkit.UI;
@@ -20,75 +16,66 @@ namespace Molecule_Shapes.View
     [RequireComponent(typeof(GameSessionController))]
     public class MoleculeXRGamePanel : MonoBehaviour
     {
-        [Header("Placement (world space)")]
-        [Tooltip("Where the panel sits relative to the molecule's initial position (default: left side).")]
+        [Header("Theme")]
+        [Tooltip("Shared look (fonts/colours/edges). Create via Assets -> Create -> Molecule Shapes -> " +
+                 "Panel Style, then assign here. Empty = built-in defaults.")]
+        [SerializeField] private PanelStyle style;
+
+        [Header("Placement / axis (world space)")]
+        [Tooltip("Offset of the whole panel from the molecule's initial position (default: left of it).")]
         [SerializeField] private Vector3 panelWorldOffset = new Vector3(-0.45f, 0f, 0f);
-        [Tooltip("Panel physical size in metres. Height must fit the tallest layout (Identify shows the most).")]
-        [SerializeField] private Vector2 panelSizeMeters = new Vector2(0.34f, 0.82f);
-        [Tooltip("1 UI unit = canvasScale metres (smaller = sharper text, smaller visual font).")]
+        [Tooltip("Panel orientation in degrees. (0,0,0) faces the user on -Z; tilt/rotate freely.")]
+        [SerializeField] private Vector3 panelEulerAngles = Vector3.zero;
+        [Tooltip("Panel size in metres (x = width, y = height). Raise height if content ever overflows.")]
+        [SerializeField] private Vector2 panelSizeMeters = new Vector2(0.34f, 0.84f);
+        [Tooltip("Metres per UI unit. Smaller = sharper text but smaller visual font.")]
         [SerializeField] private float canvasScale = 0.001f;
 
-        [Header("Layout (UI units)")]
-        [SerializeField] private int columnPadding = 20;
-        [SerializeField] private float rowSpacing = 8f;
+        [Header("Score badge (floats beside the title, outside the panel)")]
+        [Tooltip("Badge size in UI units (x = width, y = height).")]
+        [SerializeField] private Vector2 scoreBadgeSize = new Vector2(240f, 64f);
+        [Tooltip("Badge position from the panel's top edge, in UI units. Negative x pushes it left of the " +
+                 "panel (away from the molecule); y offsets down from the top.")]
+        [SerializeField] private Vector2 scoreBadgeOffset = new Vector2(-14f, -4f);
+
+        [Header("Layout - element heights (UI units)")]
+        [Tooltip("Height of the 'VSEPR Challenge' title row.")]
         [SerializeField] private float titleHeight = 44f;
+        [Tooltip("Height of the small 'Mode' / 'Level' subtitle labels above each selector.")]
         [SerializeField] private float subtitleHeight = 22f;
+        [Tooltip("Height of each ◀ value ▶ selector row (its buttons match this height).")]
         [SerializeField] private float selectorHeight = 44f;
+        [Tooltip("Width of the ◀ / ▶ arrow buttons (the value label stretches to fill the middle).")]
         [SerializeField] private float selectorArrowWidth = 44f;
+        [Tooltip("Height of the Start / Stop button row (those buttons match this height).")]
         [SerializeField] private float startRowHeight = 52f;
+        [Tooltip("Height of the challenge prompt text area.")]
         [SerializeField] private float promptHeight = 64f;
-        [SerializeField] private float infoHeight = 30f;
+        [Tooltip("Height of EACH multiple-choice answer button (Identify modes).")]
         [SerializeField] private float answerButtonHeight = 46f;
-        [SerializeField] private float answerSpacing = 6f;
+        [Tooltip("Height of the New / Hint button row.")]
         [SerializeField] private float actionRowHeight = 50f;
-        [SerializeField] private float feedbackHeight = 72f;
+        [Tooltip("Height of the feedback text area (raise it if the score breakdown wraps).")]
+        [SerializeField] private float feedbackHeight = 76f;
 
-        [Header("Fonts")]
-        [SerializeField] private int titleFontSize = 28;
-        [SerializeField] private int subtitleFontSize = 15;
-        [SerializeField] private int valueFontSize = 20;
-        [SerializeField] private int promptFontSize = 22;
-        [SerializeField] private int infoFontSize = 18;
-        [SerializeField] private int buttonFontSize = 18;
-        [SerializeField] private int answerFontSize = 16;
-        [SerializeField] private int feedbackFontSize = 17;
-
-        [Header("Colours")]
-        [SerializeField] private Color panelBackground = new Color(0.05f, 0.07f, 0.10f, 0.92f);
-        [SerializeField] private Color buttonNormal = new Color(0.20f, 0.25f, 0.32f, 1f);
-        [SerializeField] private Color buttonHover = new Color(0.30f, 0.40f, 0.55f, 1f);
-        [SerializeField] private Color buttonPressed = new Color(0.45f, 0.60f, 0.85f, 1f);
-        [SerializeField] private Color textColor = Color.white;
-        [SerializeField] private Color subtitleColor = new Color(0.62f, 0.70f, 0.80f, 1f);
-        [SerializeField] private Color goodColor = new Color(0.45f, 0.85f, 0.50f, 1f);
-        [SerializeField] private Color badColor = new Color(0.90f, 0.45f, 0.40f, 1f);
-
-        [Header("Selectors")]
+        [Header("Content")]
         [Tooltip("Show the Level (difficulty) selector. Off = always use Default Difficulty (pools are " +
                  "cumulative, so Mixed/Hard already include every shape).")]
         [SerializeField] private bool showDifficultySelector = true;
         [SerializeField] private LearningObjective defaultObjective = LearningObjective.BuildFromAxe;
         [SerializeField] private ChallengeDifficulty defaultDifficulty = ChallengeDifficulty.Mixed;
-
-        [Header("Feedback")]
-        [Tooltip("Show the score breakdown (base, time, hints, ...) on its own lines under the result.")]
+        [Tooltip("Put each score-breakdown item on its own line under the result.")]
         [SerializeField] private bool multilineBreakdown = true;
 
         private GameSessionController _game;
         private GameSession Session => _game != null ? _game.Session : null;
-        private Font _font;
+        private PanelStyle _style;
         private GameObject _canvasGO;
 
-        // Live-updated UI references.
-        private Text _objectiveText;
-        private Text _difficultyText;
-        private Text _promptText;
-        private Text _infoText;
-        private Text _feedbackText;
-        private Transform _answersContainer;
-        private LayoutElement _answersLayout;
+        private Transform _col, _actionRow;
+        private Text _objectiveText, _difficultyText, _promptText, _infoText, _feedbackText;
+        private readonly List<GameObject> _answerButtons = new();
 
-        // Selector state (what Start will launch).
         private LearningObjective _selObjective;
         private ChallengeDifficulty _selDifficulty;
 
@@ -97,20 +84,16 @@ namespace Molecule_Shapes.View
         private void Awake()
         {
             _game = GetComponent<GameSessionController>();
-            _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             _selObjective = defaultObjective;
             _selDifficulty = defaultDifficulty;
             BuildPanel();
         }
 
-        private void OnEnable()
-        {
-            if (Session != null) Subscribe();
-        }
+        private void OnEnable() { if (Session != null) Subscribe(); }
 
         private void Start()
         {
-            Subscribe();                 // in case OnEnable ran before the session existed
+            Subscribe();
             RefreshSelectors();
             ResetDisplay();
         }
@@ -121,10 +104,29 @@ namespace Molecule_Shapes.View
             if (_canvasGO != null) Destroy(_canvasGO);
         }
 
-        private void Update()
+        private void Update() { if (Session != null) RefreshInfoLine(); }
+
+        private void OnValidate()
         {
-            if (Session != null) RefreshInfoLine();
+            if (Application.isPlaying && _canvasGO != null) RebuildNow();
         }
+
+        [ContextMenu("Rebuild Panel")]
+        public void RebuildNow()
+        {
+            if (!Application.isPlaying) return;
+            if (_canvasGO != null) Destroy(_canvasGO);
+            _answerButtons.Clear();
+            BuildPanel();
+            RefreshSelectors();
+            if (Session != null && Session.Mode == GameMode.Challenge && Session.Current != null)
+                OnChallengeStarted(Session.Current);
+            else
+                ResetDisplay();
+        }
+
+        // Prefer an assigned theme asset (picked up even if assigned at runtime); else reuse/create defaults.
+        private void EnsureStyle() => _style = style != null ? style : (_style != null ? _style : PanelStyle.CreateDefault());
 
         // --- Event wiring ---------------------------------------------------------------------------
 
@@ -155,26 +157,25 @@ namespace Molecule_Shapes.View
         private void OnChallengeStarted(Challenge c)
         {
             _promptText.text = c.Prompt;
-            SetFeedback("", textColor);
+            SetFeedback("", _style.textColor);
             RebuildAnswers(c);
         }
 
-        private void OnChallengeSolved(Challenge c, ScoreBreakdown b)
-        {
-            string header = $"Solved!  +{b.Total}";
-            SetFeedback(header + (multilineBreakdown ? "\n" : "  ") + b.Describe(multilineBreakdown), goodColor);
-        }
+        private void OnChallengeSolved(Challenge c, ScoreBreakdown b) =>
+            SetFeedback(BuildSolveText(b), _style.textColor);   // rich text colours the parts itself
 
         private void OnAnswerJudged(Challenge c, bool correct)
         {
-            if (!correct) SetFeedback("Not quite - try the next one.", badColor);
-            // A correct answer routes through OnChallengeSolved for the score breakdown.
+            if (correct) return;   // a correct answer routes through OnChallengeSolved
+            int penalty = Session != null ? Session.Rules.wrongAnswerPenalty : 0;
+            string red = Hex(_style.badColor);
+            string lost = penalty > 0 ? $"  <color={red}>−{penalty}</color>" : "";
+            SetFeedback($"Wrong.{lost}", _style.textColor);
         }
 
         private void OnChallengeTimedOut(Challenge c) =>
-            SetFeedback($"Time's up - it was {c.Goal.GeometryName}.", badColor);
+            SetFeedback($"Time's up - it was {c.Goal.GeometryName}.", _style.badColor);
 
-        // Fired on any mode/objective/difficulty change; when we drop to Sandbox (i.e. Stop), wipe the HUD.
         private void OnStateChanged()
         {
             if (Session != null && Session.Mode == GameMode.Sandbox) ResetDisplay();
@@ -182,11 +183,10 @@ namespace Molecule_Shapes.View
 
         // --- Display state --------------------------------------------------------------------------
 
-        // Clears all generated text and answer buttons back to the idle/default look.
         private void ResetDisplay()
         {
             if (_promptText != null) _promptText.text = DefaultPrompt;
-            SetFeedback("", textColor);
+            SetFeedback("", _style.textColor);
             ClearAnswers();
             RefreshInfoLine();
         }
@@ -196,13 +196,13 @@ namespace Molecule_Shapes.View
             if (_infoText == null) return;
             if (Session == null || Session.Mode != GameMode.Challenge)
             {
-                _infoText.text = "Sandbox - free play";
+                _infoText.text = "Sandbox";
                 return;
             }
             string timer = Session.Timer.Mode == TimerMode.CountDown
                 ? $"{Session.Timer.Remaining:0.0}s left"
                 : $"{Session.Timer.Elapsed:0.0}s";
-            _infoText.text = $"Score {Session.Score.Total}   Streak {Session.Score.Streak}   {timer}";
+            _infoText.text = $"Score {Session.Score.Total}\nStreak {Session.Score.Streak}   {timer}";
         }
 
         private void RefreshSelectors()
@@ -215,16 +215,54 @@ namespace Molecule_Shapes.View
         {
             if (_feedbackText == null) return;
             _feedbackText.text = text;
-            _feedbackText.color = color;
+            _feedbackText.color = color;   // rich <color> tags override this per span
         }
+
+        // Rich-text solve result: gains green, deductions red, and a correctly-signed total (no "+-90").
+        private string BuildSolveText(ScoreBreakdown b)
+        {
+            string g = Hex(_style.goodColor);
+            string r = Hex(_style.badColor);
+
+            int net = b.Total;
+            string headColor = net >= 0 ? g : r;
+            string headAmt = (net >= 0 ? "+" : "−") + Mathf.Abs(net);
+            string header = $"Solved!  <color={headColor}>{headAmt}</color>";
+
+            var items = new List<string>
+            {
+                Colored(g, $"Base {b.basePoints}")   // base is a gain
+            };
+            AddItem(items, g, r, "Time", b.timeBonus);
+            AddItem(items, g, r, "Accuracy", b.accuracyBonus);
+            AddItem(items, g, r, "Streak", b.streakBonus);
+            AddItem(items, g, r, "Attempts", b.attemptPenalty);
+            AddItem(items, g, r, "Hints", b.hintPenalty);
+
+            string sep = multilineBreakdown ? "\n" : "   ";
+            return header + "\n" + string.Join(sep, items);
+        }
+
+        private static void AddItem(List<string> items, string green, string red, string name, int value)
+        {
+            if (value == 0) return;
+            string col = value >= 0 ? green : red;
+            string signed = value >= 0 ? $"+{value}" : $"−{-value}";
+            items.Add(Colored(col, $"{name} {signed}"));
+        }
+
+        private static string Colored(string hex, string text) => $"<color={hex}>{text}</color>";
+        private static string Hex(Color c) => "#" + ColorUtility.ToHtmlStringRGB(c);
 
         // --- Panel construction ---------------------------------------------------------------------
 
         private void BuildPanel()
         {
+            EnsureStyle();
+
             _canvasGO = new GameObject("MoleculeXRGamePanel Canvas");
             _canvasGO.transform.position = transform.position + panelWorldOffset;
-            _canvasGO.transform.rotation = Quaternion.identity;     // -Z face points toward the user
+            _canvasGO.transform.rotation = Quaternion.Euler(panelEulerAngles);
             _canvasGO.transform.localScale = Vector3.one * canvasScale;
 
             Canvas canvas = _canvasGO.AddComponent<Canvas>();
@@ -237,53 +275,44 @@ namespace Molecule_Shapes.View
             rt.sizeDelta = new Vector2(panelSizeMeters.x / canvasScale, panelSizeMeters.y / canvasScale);
 
             AddBackground(_canvasGO.transform);
+            BuildScoreBadge(_canvasGO.transform);
 
-            Transform col = MakeColumn(_canvasGO.transform, rowSpacing, fillParent: true);
+            _col = PanelUi.MakeColumn(_canvasGO.transform, _style, _style.rowSpacing, fillParent: true);
 
-            CreateLabel(col, "VSEPR Challenge", titleFontSize, FontStyle.Bold, TextAnchor.MiddleCenter,
-                        titleHeight, textColor);
+            PanelUi.MakeLabel(_col, _style, "VSEPR Challenge", _style.titleFontSize, FontStyle.Bold,
+                              TextAnchor.MiddleCenter, _style.textColor, titleHeight);
 
-            // Mode selector (subtitle above the value, per feedback).
-            CreateLabel(col, "Mode", subtitleFontSize, FontStyle.Normal, TextAnchor.MiddleCenter,
-                        subtitleHeight, subtitleColor);
-            _objectiveText = CreateSelectorRow(col,
+            PanelUi.MakeLabel(_col, _style, "Mode", _style.subtitleFontSize, FontStyle.Normal,
+                              TextAnchor.MiddleCenter, _style.subtitleColor, subtitleHeight);
+            _objectiveText = CreateSelectorRow(
                 () => { _selObjective = CycleEnum(_selObjective, -1); RefreshSelectors(); },
                 () => { _selObjective = CycleEnum(_selObjective, +1); RefreshSelectors(); });
 
-            // Level selector (optional).
             if (showDifficultySelector)
             {
-                CreateLabel(col, "Level", subtitleFontSize, FontStyle.Normal, TextAnchor.MiddleCenter,
-                            subtitleHeight, subtitleColor);
-                _difficultyText = CreateSelectorRow(col,
+                PanelUi.MakeLabel(_col, _style, "Level", _style.subtitleFontSize, FontStyle.Normal,
+                                  TextAnchor.MiddleCenter, _style.subtitleColor, subtitleHeight);
+                _difficultyText = CreateSelectorRow(
                     () => { _selDifficulty = CycleEnum(_selDifficulty, -1); RefreshSelectors(); },
                     () => { _selDifficulty = CycleEnum(_selDifficulty, +1); RefreshSelectors(); });
             }
+            else _difficultyText = null;
 
-            // Start / Stop row. Stop ends the game and (via StateChanged) resets the HUD to default.
-            Transform startRow = MakeRow(col, startRowHeight);
-            CreateButton(startRow, "Start", () => _game.StartChallenge(_selObjective, _selDifficulty));
-            CreateButton(startRow, "Stop", () => _game.EnterSandbox());
+            Transform startRow = PanelUi.MakeRow(_col, startRowHeight, _style.buttonSpacing);
+            PanelUi.MakeButton(startRow, _style, "Start", () => _game.StartChallenge(_selObjective, _selDifficulty));
+            PanelUi.MakeButton(startRow, _style, "Stop", () => _game.EnterSandbox());
 
-            _promptText = CreateLabel(col, DefaultPrompt, promptFontSize, FontStyle.Bold,
-                                      TextAnchor.MiddleCenter, promptHeight, textColor);
-            _infoText = CreateLabel(col, "", infoFontSize, FontStyle.Normal, TextAnchor.MiddleCenter,
-                                    infoHeight, textColor);
+            _promptText = PanelUi.MakeLabel(_col, _style, DefaultPrompt, _style.promptFontSize, FontStyle.Bold,
+                                            TextAnchor.MiddleCenter, _style.textColor, promptHeight);
 
-            // Answer buttons (Identify only) - own container, height set dynamically per challenge.
-            _answersContainer = MakeColumn(col, answerSpacing, fillParent: false);
-            _answersLayout = _answersContainer.gameObject.AddComponent<LayoutElement>();
-            _answersLayout.minHeight = 0f;
-            _answersLayout.preferredHeight = 0f;
+            // Answer buttons are inserted here (direct children of the column) between the prompt and the
+            // action row, so the vertical layout always spaces them and they can never overlap New/Hint.
+            _actionRow = PanelUi.MakeRow(_col, actionRowHeight, _style.buttonSpacing);
+            PanelUi.MakeButton(_actionRow, _style, "New", () => _game.NextChallenge());
+            PanelUi.MakeButton(_actionRow, _style, "Hint", () => SetFeedback(_game.UseHint(), _style.textColor));
 
-            // New / Hint row.
-            Transform actionRow = MakeRow(col, actionRowHeight);
-            CreateButton(actionRow, "New", () => _game.NextChallenge());
-            CreateButton(actionRow, "Hint", () => SetFeedback(_game.UseHint(), textColor));
-
-            _feedbackText = CreateLabel(col, "", feedbackFontSize, FontStyle.Bold, TextAnchor.UpperCenter,
-                                        feedbackHeight, textColor);
-            _feedbackText.verticalOverflow = VerticalWrapMode.Overflow;
+            _feedbackText = PanelUi.MakeLabel(_col, _style, "", _style.bodyFontSize, FontStyle.Bold,
+                                              TextAnchor.UpperCenter, _style.textColor, feedbackHeight);
 
             RefreshSelectors();
         }
@@ -296,137 +325,66 @@ namespace Molecule_Shapes.View
             r.anchorMin = Vector2.zero; r.anchorMax = Vector2.one;
             r.offsetMin = Vector2.zero; r.offsetMax = Vector2.zero;
             Image img = bg.AddComponent<Image>();
-            img.color = panelBackground;
             img.raycastTarget = false;
+            PanelUi.StyleAsPanel(img, _style);
         }
 
-        // A vertical layout column. If fillParent, it stretches to the canvas (with padding); otherwise
-        // it's a content-sized sub-column whose height a LayoutElement controls.
-        private Transform MakeColumn(Transform parent, float spacing, bool fillParent)
+        // Score/streak/timer as its own small badge that floats beside the title, outside the panel body.
+        private void BuildScoreBadge(Transform canvasT)
         {
-            var go = new GameObject(fillParent ? "Column" : "SubColumn", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            RectTransform r = go.GetComponent<RectTransform>();
-            if (fillParent)
-            {
-                r.anchorMin = Vector2.zero; r.anchorMax = Vector2.one;
-                r.offsetMin = new Vector2(columnPadding, columnPadding);
-                r.offsetMax = new Vector2(-columnPadding, -columnPadding);
-            }
-            var layout = go.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = spacing;
-            layout.childAlignment = TextAnchor.UpperCenter;
-            layout.childControlWidth = true;
-            layout.childForceExpandWidth = true;
-            layout.childControlHeight = false;
-            layout.childForceExpandHeight = false;
-            return go.transform;
+            var badge = new GameObject("Score Badge", typeof(RectTransform));
+            badge.transform.SetParent(canvasT, false);
+            RectTransform r = badge.GetComponent<RectTransform>();
+            r.anchorMin = r.anchorMax = new Vector2(0f, 1f);   // top-left corner of the panel
+            r.pivot = new Vector2(1f, 1f);                     // badge's top-right pins there
+            r.sizeDelta = scoreBadgeSize;
+            r.anchoredPosition = scoreBadgeOffset;             // negative x -> outside, to the left
+
+            Image img = badge.AddComponent<Image>();
+            img.raycastTarget = false;
+            PanelUi.StyleAsPanel(img, _style);
+
+            _infoText = PanelUi.MakeLabel(badge.transform, _style, "", _style.infoFontSize, FontStyle.Bold,
+                                          TextAnchor.MiddleCenter, _style.textColor, scoreBadgeSize.y);
+            RectTransform lrt = _infoText.GetComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = new Vector2(8, 4); lrt.offsetMax = new Vector2(-8, -4);
         }
 
-        private Transform MakeRow(Transform parent, float height)
+        // "◀  <value>  ▶" selector row. forceExpandWidth:false lets the arrows keep their fixed width and
+        // the value label stretch (flexibleWidth) - otherwise all three would expand equally.
+        private Text CreateSelectorRow(Action onPrev, Action onNext)
         {
-            var go = new GameObject("Row", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            var layout = go.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 6;
-            layout.childControlWidth = true;
-            layout.childForceExpandWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandHeight = true;
-            LayoutElement le = go.AddComponent<LayoutElement>();
-            le.minHeight = height; le.preferredHeight = height;
-            return go.transform;
-        }
-
-        // "◀  <value>  ▶" selector row; returns the centre Text so callers can update the value.
-        private Text CreateSelectorRow(Transform parent, Action onPrev, Action onNext)
-        {
-            Transform row = MakeRow(parent, selectorHeight);
-            CreateButton(row, "◀", onPrev, selectorArrowWidth);
-            Text label = CreateLabel(row, "", valueFontSize, FontStyle.Bold, TextAnchor.MiddleCenter,
-                                     selectorHeight, textColor);
+            Transform row = PanelUi.MakeRow(_col, selectorHeight, _style.buttonSpacing, forceExpandWidth: false);
+            PanelUi.MakeButton(row, _style, "◀", onPrev, fixedWidth: selectorArrowWidth);
+            Text label = PanelUi.MakeLabel(row, _style, "", _style.valueFontSize, FontStyle.Bold,
+                                           TextAnchor.MiddleCenter, _style.textColor, selectorHeight);
             label.GetComponent<LayoutElement>().flexibleWidth = 1;
-            CreateButton(row, "▶", onNext, selectorArrowWidth);
+            PanelUi.MakeButton(row, _style, "▶", onNext, fixedWidth: selectorArrowWidth);
             return label;
         }
 
         private void ClearAnswers()
         {
-            if (_answersContainer == null) return;
-            for (int i = _answersContainer.childCount - 1; i >= 0; i--)
-                Destroy(_answersContainer.GetChild(i).gameObject);
-            if (_answersLayout != null) { _answersLayout.minHeight = 0f; _answersLayout.preferredHeight = 0f; }
+            for (int i = _answerButtons.Count - 1; i >= 0; i--)
+                if (_answerButtons[i] != null) Destroy(_answerButtons[i]);
+            _answerButtons.Clear();
         }
 
         private void RebuildAnswers(Challenge c)
         {
             ClearAnswers();
-            if (c.Task != TaskMode.Identify) return;
+            if (c.Task != TaskMode.Identify || _actionRow == null) return;
 
-            int n = c.Options.Count;
-            for (int i = 0; i < n; i++)
+            for (int i = 0; i < c.Options.Count; i++)
             {
                 int index = i;
-                CreateButton(_answersContainer, c.Options[i], () => _game.SubmitAnswer(index),
-                             fixedWidth: 0f, height: answerButtonHeight, fontSize: answerFontSize);
+                Button btn = PanelUi.MakeButton(_col, _style, c.Options[i], () => _game.SubmitAnswer(index),
+                                                height: answerButtonHeight);
+                // Move it just above the New/Hint row so it lands between the prompt and the actions.
+                btn.transform.SetSiblingIndex(_actionRow.GetSiblingIndex());
+                _answerButtons.Add(btn.gameObject);
             }
-            // Size the container to exactly hold its buttons so it can't overlap the New/Hint row or
-            // feedback below it (the previous fixed height was the overflow culprit).
-            float h = n > 0 ? n * answerButtonHeight + (n - 1) * answerSpacing + 4f : 0f;
-            _answersLayout.minHeight = h;
-            _answersLayout.preferredHeight = h;
-        }
-
-        // --- Primitive UI builders ------------------------------------------------------------------
-
-        private Text CreateLabel(Transform parent, string text, int fontSize, FontStyle style,
-                                 TextAnchor alignment, float height, Color color)
-        {
-            var go = new GameObject("Label", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            Text t = go.AddComponent<Text>();
-            t.font = _font; t.text = text; t.fontSize = fontSize; t.fontStyle = style;
-            t.alignment = alignment; t.color = color; t.raycastTarget = false;
-            t.horizontalOverflow = HorizontalWrapMode.Wrap;
-            LayoutElement le = go.AddComponent<LayoutElement>();
-            le.minHeight = height; le.preferredHeight = height;
-            return t;
-        }
-
-        private Button CreateButton(Transform parent, string label, Action onClick,
-                                    float fixedWidth = 0f, float height = 50f, int fontSize = -1)
-        {
-            var go = new GameObject(label + " Button", typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-
-            Image img = go.AddComponent<Image>();
-            img.color = buttonNormal;
-
-            Button btn = go.AddComponent<Button>();
-            var colors = btn.colors;
-            colors.normalColor = buttonNormal;
-            colors.highlightedColor = buttonHover;
-            colors.pressedColor = buttonPressed;
-            colors.selectedColor = buttonHover;
-            colors.colorMultiplier = 1f;
-            btn.colors = colors;
-            btn.onClick.AddListener(() => onClick());
-
-            LayoutElement le = go.AddComponent<LayoutElement>();
-            le.minHeight = height; le.preferredHeight = height;
-            if (fixedWidth > 0f) { le.minWidth = fixedWidth; le.preferredWidth = fixedWidth; }
-
-            var textGO = new GameObject("Text", typeof(RectTransform));
-            textGO.transform.SetParent(go.transform, false);
-            RectTransform tr = textGO.GetComponent<RectTransform>();
-            tr.anchorMin = Vector2.zero; tr.anchorMax = Vector2.one;
-            tr.offsetMin = new Vector2(4, 2); tr.offsetMax = new Vector2(-4, -2);
-            Text t = textGO.AddComponent<Text>();
-            t.font = _font; t.text = label; t.fontSize = fontSize > 0 ? fontSize : buttonFontSize;
-            t.alignment = TextAnchor.MiddleCenter; t.color = textColor; t.raycastTarget = false;
-            t.horizontalOverflow = HorizontalWrapMode.Wrap;
-            t.verticalOverflow = VerticalWrapMode.Overflow;
-            return btn;
         }
 
         // --- Helpers --------------------------------------------------------------------------------
@@ -439,10 +397,10 @@ namespace Molecule_Shapes.View
             return values[i];
         }
 
-        // "BuildFromAxe" -> "Build From AXE" (AXE stays fully capitalised like the real notation).
+        // "BuildFromAxe" -> "Build From AXE".
         private static string ObjectiveLabel(LearningObjective objective)
         {
-            var sb = new System.Text.StringBuilder();
+            var sb = new StringBuilder();
             string s = objective.ToString();
             for (int i = 0; i < s.Length; i++)
             {

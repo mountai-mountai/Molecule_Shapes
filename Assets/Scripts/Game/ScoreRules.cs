@@ -29,6 +29,9 @@ namespace Molecule_Shapes.Game
         public bool useHintPenalty = false;
         public int hintPenalty = 25;
 
+        // Wrong Identify answer: subtract this from the running total (floored at 0). 0 = off.
+        public int wrongAnswerPenalty = 50;
+
         public int streakBonusPerLevel = 0;   // added per current streak level (0 = off)
 
         // The "start basic" preset: base points only.

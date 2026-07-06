@@ -4,6 +4,7 @@
     "references": [
         "MoleculeShapes",
         "Unity.XR.Interaction.Toolkit",
+        "Unity.Mathematics",
         "UnityEngine.UI"
     ],
     "includePlatforms": [],

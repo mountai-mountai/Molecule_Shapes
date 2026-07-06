@@ -134,10 +134,18 @@ namespace Molecule_Shapes.Game
                 return;
 
             bool correct = Current.CheckAnswer(optionIndex);
-            AnswerJudged?.Invoke(Current, correct);
 
-            if (correct) RegisterSolve(accuracy01: 1f);
-            else Score.BreakStreak();
+            if (correct)
+            {
+                AnswerJudged?.Invoke(Current, true);
+                RegisterSolve(accuracy01: 1f);
+            }
+            else
+            {
+                if (Rules.wrongAnswerPenalty > 0) Score.Penalize(Rules.wrongAnswerPenalty);
+                Score.BreakStreak();
+                AnswerJudged?.Invoke(Current, false);   // fired after the penalty so the HUD reads the new total
+            }
         }
 
         private void RegisterSolve(float accuracy01)
