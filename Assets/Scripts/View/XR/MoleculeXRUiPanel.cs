@@ -33,6 +33,16 @@ namespace Molecule_Shapes.View
         [SerializeField] private Vector2 panelSizeMeters = new Vector2(0.32f, 0.65f);
         [SerializeField] private float canvasScale = 0.001f;
 
+        [Header("Movable")]
+        [Tooltip("Add a grab bar on top so the panel can be picked up and moved (needs one " +
+                 "PanelGrabController in the scene, wired to the controllers + grip actions).")]
+        [SerializeField] private bool movable = true;
+        [Tooltip("Thickness of the grab bar, metres.")]
+        [SerializeField] private float handleThickness = 0.02f;
+        [Tooltip("Grab-bar width as a fraction of the panel width. 1 = full bar; smaller = a centered tab.")]
+        [Range(0.05f, 1f)] [SerializeField] private float handleWidthFraction = 1f;
+        [SerializeField] private Color handleColor = new Color(0.30f, 0.40f, 0.55f, 1f);
+
         [Header("Layout (UI units)")]
         [Tooltip("Height of the 'Molecule Controls' title row.")]
         [SerializeField] private float titleHeight = 48f;
@@ -51,13 +61,17 @@ namespace Molecule_Shapes.View
         [Tooltip("Show Electron/Molecular geometry checkboxes beside the panel; toggle one to reveal its name.")]
         [SerializeField] private bool showGeometryToggles = true;
         [Tooltip("Strip position from the panel's top-right corner, UI units. Positive x pushes it outside, right.")]
-        [SerializeField] private Vector2 geometrySideOffset = new Vector2(14f, -8f);
-        [Tooltip("Strip size in UI units (x = width, y = height).")]
-        [SerializeField] private Vector2 geometrySideSize = new Vector2(320f, 130f);
-        [Tooltip("Height of each geometry toggle row.")]
+        [SerializeField] private Vector2 geometrySideOffset = new Vector2(8f, -8f);
+        [Tooltip("Strip size in UI units (x = width, y = height). Long names overflow past the width.")]
+        [SerializeField] private Vector2 geometrySideSize = new Vector2(210f, 120f);
+        [Tooltip("Height of each geometry toggle row (the caption/name text height).")]
         [SerializeField] private float geometryRowHeight = 48f;
-        [Tooltip("Size (square) of each checkbox, UI units.")]
-        [SerializeField] private float geometryCheckboxSize = 40f;
+        [Tooltip("Size (square) of each checkbox, UI units - independent of the row/text height.")]
+        [SerializeField] private float geometryCheckboxSize = 32f;
+        [Tooltip("Colour of the 'Electron' / 'Molecular' captions.")]
+        [SerializeField] private Color geometryCaptionColor = Color.white;
+        [Tooltip("Colour of the popped-out geometry name.")]
+        [SerializeField] private Color geometryValueColor = new Color(0.62f, 0.70f, 0.80f, 1f);
 
         [Header("Preset count buttons (1-6)")]
         [Tooltip("Show the '1-6 set bonded count' shortcut row at all.")]
@@ -70,9 +84,11 @@ namespace Molecule_Shapes.View
         private BondAngleOverlay _overlay;
         private GameSessionController _gameController;
         private PanelStyle _style;
+        private GameObject _panelRoot;
         private GameObject _canvasGO;
         private GameObject _presetRow;
         private GameObject _presetSectionLabel;
+        private GameObject _geometryStrip;
         private Text _electronValue;
         private Text _molecularValue;
         private bool _gameSubscribed;
@@ -93,45 +109,60 @@ namespace Molecule_Shapes.View
         private void Start()
         {
             SubscribeToGame();          // GameSessionController.Session exists after its Awake
-            UpdatePresetVisibility();
+            RefreshGameDrivenVisibility();
         }
 
         private void OnDestroy()
         {
-            if (_canvasGO != null) Destroy(_canvasGO);
+            if (_panelRoot != null) Destroy(_panelRoot);
         }
 
         // Live restyle while playing.
         private void OnValidate()
         {
-            if (Application.isPlaying && _canvasGO != null) RebuildNow();
+            if (Application.isPlaying && _panelRoot != null) RebuildNow();
         }
 
         [ContextMenu("Rebuild Panel")]
         public void RebuildNow()
         {
             if (!Application.isPlaying) return;
-            if (_canvasGO != null) Destroy(_canvasGO);
+
+            // Preserve where the user moved the panel to across a live rebuild.
+            Vector3? pos = null; Quaternion rot = Quaternion.identity;
+            if (_panelRoot != null)
+            {
+                pos = _panelRoot.transform.position; rot = _panelRoot.transform.rotation;
+                Destroy(_panelRoot);
+            }
             BuildPanel();
-            UpdatePresetVisibility();
+            if (pos.HasValue) _panelRoot.transform.SetPositionAndRotation(pos.Value, rot);
+
+            RefreshGameDrivenVisibility();
         }
 
         // Prefer an assigned theme asset (picked up even if assigned at runtime); otherwise reuse or
         // create a defaults instance.
         private void EnsureStyle() => _style = style != null ? style : (_style != null ? _style : PanelStyle.CreateDefault());
 
-        // --- Preset-row visibility (anti-shortcut) --------------------------------------------------
+        // --- Game-driven visibility (anti-shortcut / anti-cheat) ------------------------------------
 
         private GameSession Game => _gameController != null ? _gameController.Session : null;
 
         private void SubscribeToGame()
         {
             if (_gameSubscribed || Game == null) return;
-            Game.ChallengeStarted += _ => UpdatePresetVisibility();
-            Game.ChallengeSolved += (_, __) => UpdatePresetVisibility();
-            Game.ChallengeTimedOut += _ => UpdatePresetVisibility();
-            Game.StateChanged += UpdatePresetVisibility;
+            Game.ChallengeStarted += _ => RefreshGameDrivenVisibility();
+            Game.ChallengeSolved += (_, __) => RefreshGameDrivenVisibility();
+            Game.ChallengeTimedOut += _ => RefreshGameDrivenVisibility();
+            Game.StateChanged += RefreshGameDrivenVisibility;
             _gameSubscribed = true;
+        }
+
+        private void RefreshGameDrivenVisibility()
+        {
+            UpdatePresetVisibility();
+            UpdateGeometryVisibility();
         }
 
         private void UpdatePresetVisibility()
@@ -146,15 +177,28 @@ namespace Molecule_Shapes.View
             if (_presetSectionLabel != null) _presetSectionLabel.SetActive(visible);
         }
 
+        // Hide the geometry read-outs during Identify challenges where they'd give the answer away
+        // (naming the molecule, or naming both the shape and AXE).
+        private void UpdateGeometryVisibility()
+        {
+            if (_geometryStrip == null) return;
+            bool givesAnswer = Game != null && Game.Mode == GameMode.Challenge && Game.Current != null
+                               && (Game.Current.Objective == LearningObjective.IdentifyName
+                                   || Game.Current.Objective == LearningObjective.IdentifyBoth);
+            _geometryStrip.SetActive(showGeometryToggles && !givesAnswer);
+        }
+
         // --- Construction ---------------------------------------------------------------------------
 
         private void BuildPanel()
         {
             EnsureStyle();
 
+            _panelRoot = new GameObject("MoleculeXRUiPanel Root");
+            _panelRoot.transform.SetPositionAndRotation(transform.position + panelWorldOffset, Quaternion.Euler(panelEulerAngles));
+
             _canvasGO = new GameObject("MoleculeXRUiPanel Canvas");
-            _canvasGO.transform.position = transform.position + panelWorldOffset;
-            _canvasGO.transform.rotation = Quaternion.Euler(panelEulerAngles);
+            _canvasGO.transform.SetParent(_panelRoot.transform, false);
             _canvasGO.transform.localScale = Vector3.one * canvasScale;
 
             Canvas canvas = _canvasGO.AddComponent<Canvas>();
@@ -188,13 +232,19 @@ namespace Molecule_Shapes.View
             {
                 int target = n;
                 PanelUi.MakeButton(row, _style, target.ToString(), () => _controller.SetBondedAtomCount(target),
-                                   fontSize: presetButtonFontSize, height: presetRowHeight, fixedWidth: presetButtonWidth);
+                                   fontSize: presetButtonFontSize, height: 0f, fixedWidth: presetButtonWidth);
             }
 
             PanelUi.MakeButton(col, _style, "Reset", () => _controller.ResetMolecule(), height: buttonHeight);
 
             if (_overlay != null)
                 PanelUi.MakeButton(col, _style, "Toggle Angles", () => _overlay.ToggleVisible(), height: buttonHeight);
+
+            PanelUi.AddFlexibleSpacer(col);   // keeps every button at its set height (absorbs leftover space)
+
+            if (movable) PanelUi.AddHandle(_panelRoot.transform, panelSizeMeters, handleThickness, handleColor, handleWidthFraction);
+
+            PanelUi.ForceRebuild(col);
         }
 
         private void AddBackground(Transform parent)
@@ -217,6 +267,7 @@ namespace Molecule_Shapes.View
         {
             var strip = new GameObject("Geometry Toggles", typeof(RectTransform));
             strip.transform.SetParent(canvasT, false);
+            _geometryStrip = strip;
             RectTransform r = strip.GetComponent<RectTransform>();
             r.anchorMin = r.anchorMax = new Vector2(1f, 1f);   // panel's top-right corner
             r.pivot = new Vector2(0f, 1f);                     // strip's top-left pins there
@@ -227,7 +278,7 @@ namespace Molecule_Shapes.View
             layout.spacing = _style.rowSpacing;
             layout.childAlignment = TextAnchor.UpperLeft;
             layout.childControlWidth = true; layout.childForceExpandWidth = true;
-            layout.childControlHeight = false; layout.childForceExpandHeight = false;
+            layout.childControlHeight = true; layout.childForceExpandHeight = false;   // rows honor geometryRowHeight
 
             _electronValue = MakeGeometryRow(strip.transform, "Electron");
             _molecularValue = MakeGeometryRow(strip.transform, "Molecular");
@@ -235,14 +286,21 @@ namespace Molecule_Shapes.View
 
         private Text MakeGeometryRow(Transform parent, string caption)
         {
-            Transform row = PanelUi.MakeRow(parent, geometryRowHeight, _style.buttonSpacing, forceExpandWidth: false);
+            // Left-align so the checkboxes stay in a column regardless of caption/name length (otherwise a
+            // shorter caption like "Electron" gets centered and its checkbox drifts right). forceExpandHeight
+            // false lets the checkbox keep its own (smaller) size inside the taller text row.
+            Transform row = PanelUi.MakeRow(parent, geometryRowHeight, _style.buttonSpacing,
+                                            forceExpandWidth: false, childAlignment: TextAnchor.MiddleLeft,
+                                            forceExpandHeight: false);
 
             Toggle toggle = MakeCheckbox(row);
             PanelUi.MakeLabel(row, _style, caption, _style.sectionFontSize, FontStyle.Bold,
-                              TextAnchor.MiddleLeft, _style.textColor, geometryRowHeight);
+                              TextAnchor.MiddleLeft, geometryCaptionColor, geometryRowHeight);
 
+            // wrap: false so long names like "Trigonal Bipyramidal" stay on one line (no dropped letters);
+            // it overflows to the right into the floating strip's space instead.
             Text value = PanelUi.MakeLabel(row, _style, "", _style.sectionFontSize, FontStyle.Normal,
-                                           TextAnchor.MiddleLeft, _style.subtitleColor, geometryRowHeight);
+                                           TextAnchor.MiddleLeft, geometryValueColor, geometryRowHeight, wrap: false);
             value.GetComponent<LayoutElement>().flexibleWidth = 1;
             value.gameObject.SetActive(false);                 // pops out when the box is checked
 

@@ -41,8 +41,10 @@ namespace Molecule_Shapes.View
 
         // A rounded (or custom) button whose fill is white so the Button ColorBlock can tint it through
         // normal/hover/pressed states.
+        // height <= 0 means "don't impose a height" - the parent row/column then fully controls it.
+        // Pass an explicit height only for column items (where the item's own height is the control).
         public static Button MakeButton(Transform parent, PanelStyle s, string label, Action onClick,
-                                        int fontSize = 0, float height = 50f, float fixedWidth = 0f)
+                                        int fontSize = 0, float height = 0f, float fixedWidth = 0f)
         {
             var go = new GameObject((string.IsNullOrEmpty(label) ? "Button" : label) + " Button", typeof(RectTransform));
             go.transform.SetParent(parent, false);
@@ -65,7 +67,7 @@ namespace Molecule_Shapes.View
             btn.onClick.AddListener(() => onClick());
 
             LayoutElement le = go.AddComponent<LayoutElement>();
-            le.minHeight = height; le.preferredHeight = height;
+            if (height > 0f) { le.minHeight = height; le.preferredHeight = height; }
             if (fixedWidth > 0f) { le.minWidth = fixedWidth; le.preferredWidth = fixedWidth; }
 
             var textGO = new GameObject("Text", typeof(RectTransform));
@@ -93,7 +95,7 @@ namespace Molecule_Shapes.View
             t.horizontalOverflow = wrap ? HorizontalWrapMode.Wrap : HorizontalWrapMode.Overflow;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             LayoutElement le = go.AddComponent<LayoutElement>();
-            le.minHeight = height; le.preferredHeight = height;
+            if (height > 0f) { le.minHeight = height; le.preferredHeight = height; }  // <=0 -> parent controls
             return t;
         }
 
@@ -115,7 +117,9 @@ namespace Molecule_Shapes.View
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.childControlWidth = true;
             layout.childForceExpandWidth = true;
-            layout.childControlHeight = false;
+            // Control height from each child's LayoutElement so the height fields actually drive the
+            // rendered heights (don't force-expand, so each keeps its own preferred height).
+            layout.childControlHeight = true;
             layout.childForceExpandHeight = false;
             return go.transform;
         }
@@ -123,19 +127,79 @@ namespace Molecule_Shapes.View
         // forceExpandWidth: true = children share the row width equally (Start/Stop, New/Hint). false =
         // children keep their own preferred/fixed widths (so a LayoutElement width or a flexibleWidth on
         // one child actually takes effect - needed for the ◀ value ▶ selector and the 1-6 preset row).
-        public static Transform MakeRow(Transform parent, float height, float spacing, bool forceExpandWidth = true)
+        public static Transform MakeRow(Transform parent, float height, float spacing,
+                                        bool forceExpandWidth = true,
+                                        TextAnchor childAlignment = TextAnchor.MiddleCenter,
+                                        bool forceExpandHeight = true)
         {
             var go = new GameObject("Row", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             var layout = go.AddComponent<HorizontalLayoutGroup>();
             layout.spacing = spacing;
+            layout.childAlignment = childAlignment;   // matters when a force-expand is off
             layout.childControlWidth = true;
             layout.childForceExpandWidth = forceExpandWidth;
             layout.childControlHeight = true;
-            layout.childForceExpandHeight = true;
+            // forceExpandHeight false lets a child keep its own (smaller) height, e.g. a checkbox in a
+            // taller text row.
+            layout.childForceExpandHeight = forceExpandHeight;
             LayoutElement le = go.AddComponent<LayoutElement>();
             le.minHeight = height; le.preferredHeight = height;
             return go.transform;
+        }
+
+        // A zero-content element that soaks up all leftover vertical space in a column, so every real
+        // element stays at exactly its set height instead of the column stretching them to fill. Add it
+        // as the LAST child of a column.
+        public static void AddFlexibleSpacer(Transform column)
+        {
+            var go = new GameObject("Spacer", typeof(RectTransform));
+            go.transform.SetParent(column, false);
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.minHeight = 0f;
+            le.flexibleHeight = 1f;   // takes all the slack
+        }
+
+        // Forces the layout under `root` to recompute immediately (runtime-built world-space canvases
+        // sometimes don't rebuild on their own after a programmatic rebuild).
+        public static void ForceRebuild(Transform root)
+        {
+            if (root is RectTransform rt) LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+        }
+
+        // --- 3D helpers (grab handle) ---------------------------------------------------------------
+
+        // A flat opaque material from a URP shader (Unlit), for the 3D grab-handle bar. Requires
+        // URP/Unlit in the build (a material asset in a Resources folder guarantees this).
+        public static Material SolidMaterial(Color color)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+            var mat = new Material(shader);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+            return mat;
+        }
+
+        // Adds a grab bar across the top of a panel. It's a thin box (with the primitive's BoxCollider,
+        // which PanelGrabController raycasts against) parented to the panel root, plus a PanelHandle
+        // marker pointing back at that root. Returns the handle GameObject.
+        public static GameObject AddHandle(Transform panelRoot, Vector2 panelSizeMeters, float thicknessMeters,
+                                           Color color, float widthFraction = 1f)
+        {
+            var handle = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            handle.name = "Panel Handle";
+            handle.transform.SetParent(panelRoot, false);
+            float width = panelSizeMeters.x * Mathf.Clamp(widthFraction, 0.05f, 1f);
+            float depth = Mathf.Max(0.006f, thicknessMeters * 0.6f);
+            handle.transform.localScale = new Vector3(width, thicknessMeters, depth);
+            handle.transform.localPosition = new Vector3(0f, panelSizeMeters.y * 0.5f + thicknessMeters * 0.5f + 0.004f, 0f);
+            handle.transform.localRotation = Quaternion.identity;
+
+            handle.GetComponent<MeshRenderer>().material = SolidMaterial(color);   // keep the BoxCollider
+            handle.AddComponent<PanelHandle>().PanelRoot = panelRoot;
+            return handle;
         }
 
         // --- Rounded-rect sprite generator ----------------------------------------------------------
