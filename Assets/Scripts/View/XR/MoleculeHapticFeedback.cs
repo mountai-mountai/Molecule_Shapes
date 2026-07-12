@@ -73,9 +73,16 @@ namespace Molecule_Shapes.View
                  "Off: only the hand currently dragging an atom buzzes.")]
         [SerializeField] private bool buzzBothFromAmbientStrain = true;
 
+        [Header("Add / remove pulse")]
+        [Tooltip("Short blip on both controllers whenever an atom or lone pair is added or removed.")]
+        [SerializeField] private bool hapticOnEdit = true;
+        [SerializeField, Range(0f, 1f)] private float editAmplitude = 0.25f;
+        [SerializeField] private float editDuration = 0.05f;
+
         private MoleculeController _controller;
         private MoleculeXRDragController _drag;
         private GameSessionController _game;
+        private VsepRMolecule _molecule;
         private float _energyTimer;
         private bool _subscribed;
 
@@ -90,9 +97,31 @@ namespace Molecule_Shapes.View
         {
             AutoFindHands();
             Subscribe();
+
+            _molecule = _controller.Molecule;
+            if (_molecule != null)
+            {
+                _molecule.GroupAdded += OnMoleculeEdit;
+                _molecule.GroupRemoved += OnMoleculeEdit;
+            }
         }
 
-        private void OnDestroy() => Unsubscribe();
+        private void OnDestroy()
+        {
+            Unsubscribe();
+            if (_molecule != null)
+            {
+                _molecule.GroupAdded -= OnMoleculeEdit;
+                _molecule.GroupRemoved -= OnMoleculeEdit;
+            }
+        }
+
+        private void OnMoleculeEdit(PairGroup group)
+        {
+            if (!hapticOnEdit || group.IsCentralAtom) return;
+            Pulse(leftHand, editAmplitude, editDuration);
+            Pulse(rightHand, editAmplitude, editDuration);
+        }
 
         private void Update()
         {
@@ -209,7 +238,7 @@ namespace Molecule_Shapes.View
         private void AutoFindHands()
         {
             if (leftHand != null && rightHand != null) return;
-            var players = FindObjectsByType<HapticImpulsePlayer>(FindObjectsSortMode.InstanceID);
+            var players = FindObjectsByType<HapticImpulsePlayer>(FindObjectsInactive.Exclude);
             if (players.Length == 0)
             {
                 Debug.LogWarning("MoleculeHapticFeedback: no HapticImpulsePlayer found. Assign the " +

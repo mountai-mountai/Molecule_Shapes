@@ -27,6 +27,31 @@ namespace Molecule_Shapes.View
         [SerializeField] private Color lonePairColor = new Color(0.6f, 0.5f, 0.9f, 0.45f);
         [SerializeField] private float lonePairDiameter = 2.0f;
         [SerializeField] private float lonePairElongation = 1.6f;
+        [Tooltip("Optional custom lone-pair mesh (e.g. PhET's balloon2, tip at the origin). Empty = the " +
+                 "elongated sphere fallback.")]
+        [SerializeField] private Mesh lonePairMesh;
+        [Tooltip("Uniform scale for the custom mesh (PhET uses ~2.5). Ignored for the sphere fallback.")]
+        [SerializeField] private float lonePairMeshScale = 2.5f;
+        [Tooltip("How far the balloon is pulled back toward the central atom so its tip hides inside it. " +
+                 "~7 (the lone-pair distance) puts the tip at the atom centre; lower pushes it outward.")]
+        [SerializeField] private float lonePairPullback = 7f;
+
+        [Header("Lone pair electrons (optional dots)")]
+        [Tooltip("Show two small electron spheres on each lone pair, like PhET.")]
+        [SerializeField] private bool showLonePairElectrons = false;
+        [Tooltip("Electron colour; its alpha makes them translucent so they blend with the cloud (and UI behind).")]
+        [SerializeField] private Color electronColor = new Color(0.12f, 0.12f, 0.18f, 0.85f);
+        [SerializeField] private float electronRadius = 0.25f;
+        [Tooltip("Sideways spread of the two electrons (perpendicular to the radial axis).")]
+        [SerializeField] private float electronPerp = 0.75f;
+        [Tooltip("Distance out along the axis where the electrons sit.")]
+        [SerializeField] private float electronAlong = 5f;
+
+        [Header("Add / remove animation")]
+        [Tooltip("Seconds for an atom/lone pair to grow in when added (0 = instant).")]
+        [SerializeField] private float popInDuration = 0.18f;
+        [Tooltip("Seconds for an atom/lone pair to shrink out when removed (0 = instant).")]
+        [SerializeField] private float popOutDuration = 0.14f;
 
         [Header("Simulation")]
         [SerializeField] private float maxTimestep = 0.025f;
@@ -34,6 +59,10 @@ namespace Molecule_Shapes.View
         private VsepRMolecule _molecule;
         private readonly Dictionary<int, GameObject> _atomViews = new();
         private readonly List<(Bond bond, BondView view)> _bondViews = new();
+
+        // The atom whose bond Cycle Bond Order affects. Defaults to the last-added atom; the drag
+        // controller repoints it when the player triggers a different atom.
+        private PairGroup _activeBondAtom;
 
         // Read-only access for other view components (e.g. BondAngleOverlay).
         public VsepRMolecule Molecule => _molecule;
@@ -98,14 +127,52 @@ namespace Molecule_Shapes.View
 
             if (kb.lKey.wasPressedThisFrame) AddLonePair();
             if (kb.kKey.wasPressedThisFrame) RemoveLastLonePair();
+
+            if (kb.bKey.wasPressedThisFrame) CycleBondOrder();   // single -> double -> triple -> single
         }
 
-        public bool AddBondedAtom()
+        public bool AddBondedAtom() => AddBondedAtom(1);
+
+        // Adds a bonded atom with the given bond order (1 single, 2 double, 3 triple). Bond order is
+        // purely visual in VSEPR - a multiple bond is still one electron domain, so the geometry is
+        // unchanged; only the rendered stick count differs.
+        public bool AddBondedAtom(int bondOrder)
         {
             if (_molecule.RadialGroups.Count >= ModelMolecule.MaxConnections) return false;
 
             var atom = new PairGroup(RandomDirection() * PairGroup.BondedPairDistance, isLonePair: false);
-            _molecule.AddGroupAndBond(atom, _molecule.CentralAtom, bondOrder: 1, bondLength: PairGroup.BondedPairDistance);
+            _molecule.AddGroupAndBond(atom, _molecule.CentralAtom,
+                bondOrder: Mathf.Clamp(bondOrder, 1, 3), bondLength: PairGroup.BondedPairDistance);
+            _activeBondAtom = atom;   // newly added atom becomes the bond-order target
+            return true;
+        }
+
+        // Marks which atom's bond Cycle Bond Order targets. Called when the player triggers a bonded atom
+        // (ignored for lone pairs / the central atom). Persists until a new atom is added or another is
+        // triggered.
+        public void SetActiveBondAtom(PairGroup atom)
+        {
+            if (atom == null || atom.IsLonePair || atom.IsCentralAtom) return;
+            if (_molecule.RadialAtoms.Contains(atom)) _activeBondAtom = atom;
+        }
+
+        // Cycles the active atom's bond order 1 -> 2 -> 3 -> 1 (falls back to the last atom) and updates its view.
+        public bool CycleBondOrder()
+        {
+            var radial = _molecule.RadialAtoms;
+            if (radial.Count == 0) return false;
+
+            PairGroup target = (_activeBondAtom != null && radial.Contains(_activeBondAtom))
+                ? _activeBondAtom
+                : radial[radial.Count - 1];
+
+            Bond bond = _molecule.GetParentBond(target);
+            if (bond == null) return false;
+
+            bond.Order = bond.Order >= 3 ? 1 : bond.Order + 1;
+            for (int i = 0; i < _bondViews.Count; i++)
+                if (_bondViews[i].bond == bond && _bondViews[i].view != null)
+                    _bondViews[i].view.SetOrder(bond.Order);
             return true;
         }
 
@@ -150,6 +217,17 @@ namespace Molecule_Shapes.View
             while (RemoveLastLonePair()) { }
         }
 
+        // Resets, then builds exactly x bonded atoms and e lone pairs (clamped to the connection
+        // budget). Used by the game layer to display a target molecule (e.g. for Identify challenges)
+        // or to seed a real-molecule preset. Lone pairs are added first so they're never starved
+        // of the shared radial budget.
+        public void SetConfiguration(int x, int e)
+        {
+            ResetMolecule();
+            for (int i = 0; i < e; i++) if (!AddLonePair()) break;
+            for (int i = 0; i < x; i++) if (!AddBondedAtom()) break;
+        }
+
         // Random non-degenerate unit direction; the attractor sorts out the final geometry.
         private static float3 RandomDirection()
         {
@@ -176,25 +254,38 @@ namespace Molecule_Shapes.View
             go.transform.localScale = Vector3.one * atomDiameter;
             Destroy(go.GetComponent<Collider>());
 
-            SetColor(go, group.IsCentralAtom ? centralColor : radialColor);
+            // Assign an explicit URP material rather than tinting the primitive's default one, so device
+            // builds don't fall back to the magenta error shader (see CreateOpaqueMaterial).
+            go.GetComponent<MeshRenderer>().material = CreateOpaqueMaterial(group.IsCentralAtom ? centralColor : radialColor);
 
             go.AddComponent<AtomView>().Bind(group);
+            go.AddComponent<PopScale>().PopIn(popInDuration);
             _atomViews[group.Id] = go;
         }
 
         private void CreateLonePairView(PairGroup group)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            go.name = "LonePair";
+            var go = new GameObject("LonePair");
             go.transform.SetParent(transform, worldPositionStays: false);
-            Destroy(go.GetComponent<Collider>());
 
-            // Replace the auto-assigned URP/Lit material entirely with a fresh URP/Unlit one.
-            // URP/Lit's transparent variant is often stripped at import time, so toggling its
-            // keywords at runtime silently keeps it opaque. URP/Unlit reliably has transparency.
-            go.GetComponent<MeshRenderer>().material = CreateTranslucentMaterial(lonePairColor);
+            bool hasMesh = lonePairMesh != null;
+            var config = new LonePairView.Config
+            {
+                shellMesh = lonePairMesh,
+                // URP/Unlit translucent (URP/Lit's transparent variant is often stripped; Unlit is reliable).
+                shellMaterial = CreateTranslucentMaterial(lonePairColor),
+                scale = hasMesh ? lonePairMeshScale : lonePairDiameter,
+                elongation = hasMesh ? 1f : lonePairElongation,
+                pullBack = hasMesh ? lonePairPullback : 0f,   // only the balloon tucks its tip in
+                showElectrons = showLonePairElectrons,
+                electronMaterial = showLonePairElectrons ? CreateTranslucentMaterial(electronColor) : null,
+                electronRadius = electronRadius,
+                electronPerp = electronPerp,
+                electronAlong = electronAlong
+            };
 
-            go.AddComponent<LonePairView>().Initialize(group, lonePairDiameter, lonePairElongation);
+            go.AddComponent<LonePairView>().Initialize(group, config);
+            go.AddComponent<PopScale>().PopIn(popInDuration);
             _atomViews[group.Id] = go; // tracked here so OnGroupRemoved can destroy it
         }
 
@@ -202,8 +293,9 @@ namespace Molecule_Shapes.View
         {
             if (_atomViews.TryGetValue(group.Id, out GameObject go))
             {
-                Destroy(go);
                 _atomViews.Remove(group.Id);
+                if (go.TryGetComponent(out PopScale pop)) pop.Collapse(popOutDuration);
+                else Destroy(go);
             }
         }
 
@@ -211,14 +303,11 @@ namespace Molecule_Shapes.View
         {
             if (bond.Order == 0) return; // lone-pair "bonds" have no visible stick
 
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            go.name = "Bond";
+            // Empty container; BondView builds the actual cylinder(s) itself (1-3 for single/double/triple).
+            var go = new GameObject("Bond");
             go.transform.SetParent(transform, worldPositionStays: false);
-            Destroy(go.GetComponent<Collider>());
 
-            SetColor(go, bondColor);
-
-            BondView view = go.AddComponent<BondView>().Initialize(bond, bondThickness);
+            BondView view = go.AddComponent<BondView>().Initialize(bond, bondThickness, CreateOpaqueMaterial(bondColor));
             _bondViews.Add((bond, view));
         }
 
@@ -234,12 +323,20 @@ namespace Molecule_Shapes.View
             }
         }
 
-        // Works for both URP (_BaseColor) and the built-in pipeline (_Color).
-        private static void SetColor(GameObject go, Color color)
+        // Creates a fresh opaque material from a URP shader (falling back to Simple Lit / Standard).
+        // Assigning this explicitly - instead of tinting the primitive's auto-assigned default material -
+        // keeps the shader referenced so device builds include it and don't render magenta.
+        // Requires URP/Lit to be in Project Settings > Graphics > Always Included Shaders for the build.
+        private static Material CreateOpaqueMaterial(Color color)
         {
-            Material mat = go.GetComponent<MeshRenderer>().material;
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Simple Lit");
+            if (shader == null) shader = Shader.Find("Standard"); // built-in pipeline fallback
+
+            var mat = new Material(shader);
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
             if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+            return mat;
         }
 
         // Creates a fresh alpha-blended translucent material using URP/Unlit (variant always

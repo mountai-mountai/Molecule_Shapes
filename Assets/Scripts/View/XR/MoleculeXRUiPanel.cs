@@ -222,6 +222,7 @@ namespace Molecule_Shapes.View
             PanelUi.MakeButton(col, _style, "− Atom", () => _controller.RemoveLastAtom(), height: buttonHeight);
             PanelUi.MakeButton(col, _style, "+ Lone Pair", () => _controller.AddLonePair(), height: buttonHeight);
             PanelUi.MakeButton(col, _style, "− Lone Pair", () => _controller.RemoveLastLonePair(), height: buttonHeight);
+            PanelUi.MakeButton(col, _style, "Cycle Bond Order", () => _controller.CycleBondOrder(), height: buttonHeight);
 
             _presetSectionLabel = PanelUi.MakeLabel(col, _style, "Set bonded count:", _style.sectionFontSize,
                 FontStyle.Normal, TextAnchor.MiddleLeft, _style.textColor, sectionHeight).gameObject;
