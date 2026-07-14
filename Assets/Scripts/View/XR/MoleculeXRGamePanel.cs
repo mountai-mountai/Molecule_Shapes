@@ -31,6 +31,16 @@ namespace Molecule_Shapes.View
         [Tooltip("Metres per UI unit. Smaller = sharper text but smaller visual font.")]
         [SerializeField] private float canvasScale = 0.001f;
 
+        [Header("Movable")]
+        [Tooltip("Add a grab bar on top so the panel can be picked up and moved (needs one " +
+                 "PanelGrabController in the scene, wired to the controllers + grip actions).")]
+        [SerializeField] private bool movable = true;
+        [Tooltip("Thickness of the grab bar, metres.")]
+        [SerializeField] private float handleThickness = 0.02f;
+        [Tooltip("Grab-bar width as a fraction of the panel width. 1 = full bar; smaller = a centered tab.")]
+        [Range(0.05f, 1f)] [SerializeField] private float handleWidthFraction = 1f;
+        [SerializeField] private Color handleColor = new Color(0.30f, 0.40f, 0.55f, 1f);
+
         [Header("Score badge (floats beside the title, outside the panel)")]
         [Tooltip("Badge size in UI units (x = width, y = height).")]
         [SerializeField] private Vector2 scoreBadgeSize = new Vector2(240f, 64f);
@@ -45,8 +55,11 @@ namespace Molecule_Shapes.View
         [SerializeField] private float subtitleHeight = 22f;
         [Tooltip("Height of each ◀ value ▶ selector row (its buttons match this height).")]
         [SerializeField] private float selectorHeight = 44f;
-        [Tooltip("Width of the ◀ / ▶ arrow buttons (the value label stretches to fill the middle).")]
+        [Tooltip("Width of the ◀ / ▶ arrow buttons.")]
         [SerializeField] private float selectorArrowWidth = 44f;
+        [Tooltip("Width of the value label between the arrows. The ◀ value ▶ cluster is centered, so a " +
+                 "smaller value here tightens the spacing around Mode/Level.")]
+        [SerializeField] private float selectorValueWidth = 190f;
         [Tooltip("Height of the Start / Stop button row (those buttons match this height).")]
         [SerializeField] private float startRowHeight = 52f;
         [Tooltip("Height of the challenge prompt text area.")]
@@ -70,6 +83,7 @@ namespace Molecule_Shapes.View
         private GameSessionController _game;
         private GameSession Session => _game != null ? _game.Session : null;
         private PanelStyle _style;
+        private GameObject _panelRoot;
         private GameObject _canvasGO;
 
         private Transform _col, _actionRow;
@@ -101,23 +115,32 @@ namespace Molecule_Shapes.View
         private void OnDestroy()
         {
             Unsubscribe();
-            if (_canvasGO != null) Destroy(_canvasGO);
+            if (_panelRoot != null) Destroy(_panelRoot);
         }
 
         private void Update() { if (Session != null) RefreshInfoLine(); }
 
         private void OnValidate()
         {
-            if (Application.isPlaying && _canvasGO != null) RebuildNow();
+            if (Application.isPlaying && _panelRoot != null) RebuildNow();
         }
 
         [ContextMenu("Rebuild Panel")]
         public void RebuildNow()
         {
             if (!Application.isPlaying) return;
-            if (_canvasGO != null) Destroy(_canvasGO);
+
+            // Preserve where the user moved the panel to across a live rebuild.
+            Vector3? pos = null; Quaternion rot = Quaternion.identity;
+            if (_panelRoot != null)
+            {
+                pos = _panelRoot.transform.position; rot = _panelRoot.transform.rotation;
+                Destroy(_panelRoot);
+            }
             _answerButtons.Clear();
             BuildPanel();
+            if (pos.HasValue) _panelRoot.transform.SetPositionAndRotation(pos.Value, rot);
+
             RefreshSelectors();
             if (Session != null && Session.Mode == GameMode.Challenge && Session.Current != null)
                 OnChallengeStarted(Session.Current);
@@ -260,9 +283,11 @@ namespace Molecule_Shapes.View
         {
             EnsureStyle();
 
+            _panelRoot = new GameObject("MoleculeXRGamePanel Root");
+            _panelRoot.transform.SetPositionAndRotation(transform.position + panelWorldOffset, Quaternion.Euler(panelEulerAngles));
+
             _canvasGO = new GameObject("MoleculeXRGamePanel Canvas");
-            _canvasGO.transform.position = transform.position + panelWorldOffset;
-            _canvasGO.transform.rotation = Quaternion.Euler(panelEulerAngles);
+            _canvasGO.transform.SetParent(_panelRoot.transform, false);
             _canvasGO.transform.localScale = Vector3.one * canvasScale;
 
             Canvas canvas = _canvasGO.AddComponent<Canvas>();
@@ -314,7 +339,12 @@ namespace Molecule_Shapes.View
             _feedbackText = PanelUi.MakeLabel(_col, _style, "", _style.bodyFontSize, FontStyle.Bold,
                                               TextAnchor.UpperCenter, _style.textColor, feedbackHeight);
 
+            PanelUi.AddFlexibleSpacer(_col);   // keeps every row at its set height (absorbs leftover space)
+
+            if (movable) PanelUi.AddHandle(_panelRoot.transform, panelSizeMeters, handleThickness, handleColor, handleWidthFraction);
+
             RefreshSelectors();
+            PanelUi.ForceRebuild(_col);
         }
 
         private void AddBackground(Transform parent)
@@ -351,15 +381,16 @@ namespace Molecule_Shapes.View
             lrt.offsetMin = new Vector2(8, 4); lrt.offsetMax = new Vector2(-8, -4);
         }
 
-        // "◀  <value>  ▶" selector row. forceExpandWidth:false lets the arrows keep their fixed width and
-        // the value label stretch (flexibleWidth) - otherwise all three would expand equally.
+        // "◀ value ▶" stepper. The row centers a fixed-width value between the arrows, so the cluster
+        // stays tight instead of the value stretching the full panel width. Value doesn't wrap.
         private Text CreateSelectorRow(Action onPrev, Action onNext)
         {
             Transform row = PanelUi.MakeRow(_col, selectorHeight, _style.buttonSpacing, forceExpandWidth: false);
             PanelUi.MakeButton(row, _style, "◀", onPrev, fixedWidth: selectorArrowWidth);
             Text label = PanelUi.MakeLabel(row, _style, "", _style.valueFontSize, FontStyle.Bold,
-                                           TextAnchor.MiddleCenter, _style.textColor, selectorHeight);
-            label.GetComponent<LayoutElement>().flexibleWidth = 1;
+                                           TextAnchor.MiddleCenter, _style.textColor, 0f, wrap: false);
+            LayoutElement le = label.GetComponent<LayoutElement>();
+            le.minWidth = selectorValueWidth; le.preferredWidth = selectorValueWidth;
             PanelUi.MakeButton(row, _style, "▶", onNext, fixedWidth: selectorArrowWidth);
             return label;
         }

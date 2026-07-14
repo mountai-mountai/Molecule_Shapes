@@ -20,13 +20,13 @@ RenderSettings:
   m_FogDensity: 0.01
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
+  m_AmbientSkyColor: {r: 0.44686297, g: 0.43479288, b: 0.6037736, a: 1}
   m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
   m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
   m_AmbientIntensity: 1
-  m_AmbientMode: 0
+  m_AmbientMode: 3
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
+  m_SkyboxMaterial: {fileID: 0}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -168,6 +168,11 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!20 &281740272 stripped
+Camera:
+  m_CorrespondingSourceObject: {fileID: 1767192439, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+  m_PrefabInstance: {fileID: 1908819432}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &374412501
 GameObject:
   m_ObjectHideFlags: 0
@@ -286,7 +291,7 @@ Light:
   serializedVersion: 13
   m_Type: 1
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 2
+  m_Intensity: 1.75
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -348,7 +353,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 410087039}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.39998615, y: -0.17761895, z: 0.1354408, w: 0.88888603}
+  m_LocalRotation: {x: 0.49808225, y: -0.111371286, z: 0.06468959, w: 0.8575114}
   m_LocalPosition: {x: 0, y: 3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -403,6 +408,11 @@ GameObject:
   - component: {fileID: 484111682}
   - component: {fileID: 484111684}
   - component: {fileID: 484111685}
+  - component: {fileID: 484111687}
+  - component: {fileID: 484111686}
+  - component: {fileID: 484111688}
+  - component: {fileID: 484111689}
+  - component: {fileID: 484111690}
   m_Layer: 0
   m_Name: Molecule
   m_TagString: Untagged
@@ -423,14 +433,29 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.MoleculeController
   initialAtomCount: 4
-  atomDiameter: 4.5
-  bondThickness: 1.5
+  atomDiameter: 6
+  bondThickness: 1.4
   centralColor: {r: 0.85, g: 0.3, b: 0.2, a: 1}
   radialColor: {r: 0.3, g: 0.5, b: 0.85, a: 1}
   bondColor: {r: 0.7, g: 0.7, b: 0.7, a: 1}
-  lonePairColor: {r: 1, g: 0.9558605, b: 0.39308167, a: 0.45}
-  lonePairDiameter: 5
-  lonePairElongation: 1.4
+  lonePairColor: {r: 0.76729554, g: 0.76729554, b: 0.5428977, a: 0.4509804}
+  lonePairDiameter: 5.5
+  lonePairElongation: 1
+  lonePairMesh: {fileID: -2432090755550338912, guid: 5c7940072b4cd364fa91216aad854d9d, type: 3}
+  lonePairMeshScale: 3.75
+  lonePairPullback: 6.6
+  showLonePairElectrons: 1
+  electronColor: {r: 0.84705883, g: 0.7647059, b: 0.027450968, a: 1}
+  electronOpacity: 0.85
+  electronRadius: 0.45
+  electronPerp: 1
+  electronAlong: 7.5
+  popInDuration: 0.18
+  popOutDuration: 0.14
+  viewCamera: {fileID: 281740272}
+  recenterDistance: 0.6
+  recenterAtEyeLevel: 1
+  recenterResetsRotation: 1
   maxTimestep: 0.025
 --- !u!4 &484111676
 Transform:
@@ -473,7 +498,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25fc69be2207a694f9720b85768454e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.BondAngleOverlay
-  displayRadius: 4.5
+  displayRadius: 5.5
   innerRadius: 2.2
   sectorSegments: 24
   sectorColor: {r: 0.91764706, g: 0.62352943, b: 0.72156864, a: 0.2901961}
@@ -714,8 +739,9 @@ MonoBehaviour:
   rightController: {fileID: 1908819433}
   leftTriggerAction: {fileID: -5982496924579745919, guid: c348712bda248c246b8c49b3db54643f, type: 3}
   rightTriggerAction: {fileID: 83097790271614945, guid: c348712bda248c246b8c49b3db54643f, type: 3}
-  atomPickRadius: 2.2
-  lonePairPickRadius: 2.4
+  cycleBondButtonBinding: <XRController>{RightHand}/secondaryButton
+  atomPickRadius: 3
+  lonePairPickRadius: 4
 --- !u!114 &484111685
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -725,21 +751,178 @@ MonoBehaviour:
   m_GameObject: {fileID: 484111674}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 38b65edb6f705b2409fa6963c722a2a1, type: 3}
+  m_Script: {fileID: 11500000, guid: 4c941faf8e2544243a8ee58ff94af7a6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.MoleculeXRUiPanel
-  panelWorldOffset: {x: 0.35, y: 0.2, z: 0}
-  panelSizeMeters: {x: 0.32, y: 0.6}
+  style: {fileID: 11400000, guid: 94e66436c573532429495705ddaa627b, type: 2}
+  panelWorldOffset: {x: 0.35, y: 0, z: 0}
+  panelEulerAngles: {x: 0, y: 0, z: 0}
+  panelSizeMeters: {x: 0.34, y: 0.66}
   canvasScale: 0.001
-  panelBackground: {r: 0.05, g: 0.07, b: 0.1, a: 0.92}
-  buttonNormal: {r: 0.2, g: 0.25, b: 0.32, a: 1}
-  buttonHover: {r: 0.3, g: 0.4, b: 0.55, a: 1}
-  buttonPressed: {r: 0.45, g: 0.6, b: 0.85, a: 1}
-  textColor: {r: 1, g: 1, b: 1, a: 1}
-  titleFontSize: 28
-  sectionFontSize: 20
-  buttonFontSize: 20
-  presetButtonFontSize: 22
+  movable: 1
+  handleThickness: 0.02
+  handleWidthFraction: 0.6
+  handleColor: {r: 0.6666667, g: 0.627451, b: 0.6117647, a: 1}
+  titleHeight: 48
+  buttonHeight: 50
+  sectionHeight: 50
+  presetRowHeight: 40
+  presetButtonWidth: 45
+  presetButtonFontSize: 30
+  showGeometryToggles: 1
+  geometrySideOffset: {x: 14, y: -8}
+  geometrySideSize: {x: 320, y: 130}
+  geometryRowHeight: 40
+  geometryCheckboxSize: 38
+  geometryCaptionColor: {r: 1, g: 1, b: 1, a: 1}
+  geometryValueColor: {r: 0.62, g: 0.7, b: 0.8, a: 1}
+  showPresetButtons: 1
+  hidePresetsDuringChallenge: 1
+--- !u!114 &484111686
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18e87b6e52d2a7645aad805af5c0a3a9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes.XR::Molecule_Shapes.View.MoleculeXRGamePanel
+  style: {fileID: 11400000, guid: 94e66436c573532429495705ddaa627b, type: 2}
+  panelWorldOffset: {x: -0.45, y: 0, z: 0}
+  panelEulerAngles: {x: 0, y: 0, z: 0}
+  panelSizeMeters: {x: 0.34, y: 0.79}
+  canvasScale: 0.001
+  movable: 1
+  handleThickness: 0.02
+  handleWidthFraction: 0.6
+  handleColor: {r: 0.6666667, g: 0.627451, b: 0.6117647, a: 1}
+  scoreBadgeSize: {x: 240, y: 64}
+  scoreBadgeOffset: {x: -14, y: -4}
+  titleHeight: 44
+  subtitleHeight: 22
+  selectorHeight: 40
+  selectorArrowWidth: 48
+  selectorValueWidth: 190
+  startRowHeight: 20
+  promptHeight: 80
+  answerButtonHeight: 50
+  actionRowHeight: 20
+  feedbackHeight: 30
+  showDifficultySelector: 1
+  defaultObjective: 1
+  defaultDifficulty: 3
+  multilineBreakdown: 1
+--- !u!114 &484111687
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a6caf08e414e93419cdf22774b1e078, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.GameSessionController
+  autoStartChallenge: 0
+  startObjective: 1
+  startDifficulty: 0
+  useFixedSeed: 0
+  seed: 12345
+  useCountdown: 0
+  countdownSeconds: 30
+  useDifficultyPresetScoring: 1
+  customScoreRules:
+    basePoints: 100
+    useTimeBonus: 0
+    timeBonusMax: 100
+    timeBonusWindowSeconds: 30
+    useAttemptPenalty: 0
+    attemptPenalty: 10
+    useAccuracyBonus: 0
+    accuracyBonusMax: 50
+    useHintPenalty: 0
+    hintPenalty: 25
+    wrongAnswerPenalty: 50
+    streakBonusPerLevel: 0
+  autoRevertDuringIdentify: 1
+  revertDelay: 1.5
+--- !u!114 &484111688
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb56b9c78afb5584b8c19c0a1bf8cd47, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes.XR::Molecule_Shapes.View.MoleculeHapticFeedback
+  leftHand: {fileID: 1908819439}
+  rightHand: {fileID: 1908819435}
+  hapticOnSolve: 1
+  solveAmplitude: 0.8
+  solveDuration: 0.12
+  solvePulses: 2
+  solveGap: 0.08
+  hapticOnFail: 1
+  failAmplitude: 0.35
+  failDuration: 0.25
+  energyHapticEnabled: 1
+  energySource: 0
+  lowThreshold: 1
+  highThreshold: 8
+  crowdReferenceDistance: 9
+  minAmplitude: 0.05
+  maxAmplitude: 0.8
+  pulseInterval: 0.05
+  buzzBothFromAmbientStrain: 0
+  hapticOnEdit: 1
+  editAmplitude: 0.3
+  editDuration: 0.07
+--- !u!114 &484111689
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e95816dfcbb2c1142914e27f4fa736c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.PanelGrabController
+  leftController: {fileID: 1908819434}
+  rightController: {fileID: 1908819433}
+  leftGripAction: {fileID: -6131295136447488360, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+  rightGripAction: {fileID: 187161793506945269, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+  maxRayDistance: 5
+--- !u!114 &484111690
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d6fa8fa34a3d8f499db9f9ef6c3b6a9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.SceneBackgroundController
+  targetCamera: {fileID: 281740272}
+  solidColorBackground: 0
+  backgroundColor: {r: 0.23771375, g: 0.23381186, b: 0.28930807, a: 1}
+  overrideAmbient: 1
+  ambientColor: {r: 0.44686297, g: 0.43479288, b: 0.6037736, a: 1}
+  mainLight: {fileID: 410087040}
+  overrideMainLight: 1
+  lightColor: {r: 1, g: 1, b: 1, a: 1}
+  lightIntensity: 1.75
+  lightEulerAngles: {x: 60.3, y: -14.8, z: 0}
 --- !u!1001 &623712241
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -896,6 +1079,196 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1016964710
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1016964712}
+  - component: {fileID: 1016964714}
+  - component: {fileID: 1016964713}
+  m_Layer: 0
+  m_Name: OVR
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1016964712
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1016964710}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.41798, y: 0, z: 5.71395}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1016964713
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1016964710}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 555725d48e9051a4bb6b8d45178c2fdd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Oculus.VR::OVRPassthroughLayer
+  projectionSurfaceType: 0
+  overlayType: 1
+  compositionDepth: 0
+  hidden: 0
+  overridePerLayerColorScaleAndOffset: 0
+  colorScale: {x: 1, y: 1, z: 1, w: 1}
+  colorOffset: {x: 0, y: 0, z: 0, w: 0}
+  passthroughLayerResumed:
+    m_PersistentCalls:
+      m_Calls: []
+  colorMapEditorType_: 0
+  colorMapEditorGradient:
+    serializedVersion: 2
+    key0: {r: 0, g: 0, b: 0, a: 1}
+    key1: {r: 1, g: 1, b: 1, a: 1}
+    key2: {r: 0, g: 0, b: 0, a: 0}
+    key3: {r: 0, g: 0, b: 0, a: 0}
+    key4: {r: 0, g: 0, b: 0, a: 0}
+    key5: {r: 0, g: 0, b: 0, a: 0}
+    key6: {r: 0, g: 0, b: 0, a: 0}
+    key7: {r: 0, g: 0, b: 0, a: 0}
+    ctime0: 0
+    ctime1: 65535
+    ctime2: 0
+    ctime3: 0
+    ctime4: 0
+    ctime5: 0
+    ctime6: 0
+    ctime7: 0
+    atime0: 0
+    atime1: 65535
+    atime2: 0
+    atime3: 0
+    atime4: 0
+    atime5: 0
+    atime6: 0
+    atime7: 0
+    m_Mode: 0
+    m_ColorSpace: -1
+    m_NumColorKeys: 2
+    m_NumAlphaKeys: 2
+  colorMapEditorContrast: 0
+  colorMapEditorBrightness: 0
+  colorMapEditorPosterize: 0
+  colorMapEditorSaturation: 0
+  _colorLutSourceTexture: {fileID: 0}
+  _colorLutTargetTexture: {fileID: 0}
+  _lutWeight: 1
+  _flipLutY: 1
+  serializedSurfaceGeometry: []
+  textureOpacity_: 1
+  edgeRenderingEnabled_: 0
+  edgeColor_: {r: 1, g: 1, b: 1, a: 1}
+  colorMapType: 0
+--- !u!114 &1016964714
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1016964710}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e933e81d3c20c74ea6fdc708a67e3a5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Oculus.VR::OVRManager
+  _monoscopic: 0
+  _sharpenType: 0
+  _disableRecording: 0
+  _enableDynamicResolution: 1
+  minDynamicResolutionScale: 1
+  maxDynamicResolutionScale: 1
+  quest2MinDynamicResolutionScale: 0.7
+  quest2MaxDynamicResolutionScale: 1.3
+  quest3MinDynamicResolutionScale: 0.7
+  quest3MaxDynamicResolutionScale: 1.6
+  minRenderScale: 0.7
+  maxRenderScale: 1
+  _headPoseRelativeOffsetRotation: {x: 0, y: 0, z: 0}
+  _headPoseRelativeOffsetTranslation: {x: 0, y: 0, z: 0}
+  enableCoreMetricsRelease: 0
+  enableCoreMetricsDevelopment: 1
+  coreMetricVisibility:
+    visibleMemoryMetricStats: 0
+    visibleMemoryMetricGraphs: 0
+    visibleRenderMetricStats: 0
+    visibleRenderMetricGraphs: 0
+  enableMixedReality: 0
+  compositionMethod: 0
+  extraHiddenLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  extraVisibleLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  dynamicCullingMask: 1
+  externalCompositionBackdropColorRift: {r: 0, g: 1, b: 0, a: 1}
+  externalCompositionBackdropColorQuest: {r: 0, g: 0, b: 0, a: 0}
+  capturingCameraDevice: 0
+  flipCameraFrameHorizontally: 0
+  flipCameraFrameVertically: 0
+  handPoseStateLatency: 0
+  sandwichCompositionRenderLatency: 0
+  sandwichCompositionBufferedFrames: 8
+  chromaKeyColor: {r: 0, g: 1, b: 0, a: 1}
+  chromaKeySimilarity: 0.6
+  chromaKeySmoothRange: 0.03
+  chromaKeySpillRange: 0.06
+  useDynamicLighting: 0
+  depthQuality: 1
+  dynamicLightingSmoothFactor: 8
+  dynamicLightingDepthVariationClampingValue: 0.001
+  virtualGreenScreenType: 0
+  virtualGreenScreenTopY: 10
+  virtualGreenScreenBottomY: -10
+  virtualGreenScreenApplyDepthCulling: 0
+  virtualGreenScreenDepthTolerance: 0.2
+  mrcActivationMode: 0
+  launchSimultaneousHandsControllersOnStartup: 0
+  isInsightPassthroughEnabled: 1
+  shouldBoundaryVisibilityBeSuppressed: 0
+  requestBodyTrackingPermissionOnStartup: 0
+  requestFaceTrackingPermissionOnStartup: 0
+  requestEyeTrackingPermissionOnStartup: 0
+  requestScenePermissionOnStartup: 0
+  requestRecordAudioPermissionOnStartup: 0
+  requestPassthroughCameraAccessPermissionOnStartup: 0
+  _localDimming: 1
+  _trackingOriginType: 1
+  usePositionTracking: 1
+  useRotationTracking: 1
+  useIPDInPositionTracking: 1
+  resetTrackerOnLoad: 0
+  AllowRecenter: 1
+  LateControllerUpdate: 1
+  LateLatching: 0
+  controllerDrivenHandPosesType: 0
+  SimultaneousHandsAndControllersEnabled: 0
+  _readOnlyWideMotionModeHandPosesEnabled: 0
+  wideMotionModeHandPosesEnabled: 0
+  _readOnlyFastMotionModeHandPosesEnabled: 0
+  fastMotionModeHandPosesEnabled: 0
+  _readOnlyWideMotionMode2HandPosesEnabled: 0
+  wideMotionMode2HandPosesEnabled: 0
+  dynamicResolutionVersion: 1
 --- !u!1001 &1908819432
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -904,6 +1277,26 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1767192439, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+      propertyPath: m_ClearFlags
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1767192439, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+      propertyPath: m_BackGroundColor.a
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1767192439, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+      propertyPath: m_BackGroundColor.b
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1767192439, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+      propertyPath: m_BackGroundColor.g
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1767192439, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+      propertyPath: m_BackGroundColor.r
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 1178791450436251564, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_RequestedTrackingOriginMode
       value: 1
@@ -974,6 +1367,28 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 202364688, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
   m_PrefabInstance: {fileID: 1908819432}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1908819435 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4238984354899526239, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+  m_PrefabInstance: {fileID: 1908819432}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b734f2bd29eeddd4d85afb0c266228c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &1908819439 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5967689310316253315, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+  m_PrefabInstance: {fileID: 1908819432}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b734f2bd29eeddd4d85afb0c266228c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -985,3 +1400,4 @@ SceneRoots:
   - {fileID: 623712241}
   - {fileID: 657605119}
   - {fileID: 374412504}
+  - {fileID: 1016964712}

@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e8fc1510d92d584cadc7a0770a29a2b, type: 3}
+  m_Name: MoleculeTheme
+  m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.PanelStyle
+  font: {fileID: 0}
+  titleFontSize: 28
+  subtitleFontSize: 15
+  sectionFontSize: 20
+  valueFontSize: 20
+  promptFontSize: 22
+  infoFontSize: 18
+  bodyFontSize: 18
+  buttonFontSize: 18
+  textColor: {r: 1, g: 1, b: 1, a: 1}
+  subtitleColor: {r: 0.62, g: 0.7, b: 0.8, a: 1}
+  goodColor: {r: 0.45, g: 0.85, b: 0.5, a: 1}
+  badColor: {r: 0.9, g: 0.45, b: 0.4, a: 1}
+  panelBackground: {r: 0.15686275, g: 0.15686275, b: 0.15686275, a: 0.92}
+  panelSprite: {fileID: 0}
+  panelCornerRadius: 18
+  panelBorderColor: {r: 1, g: 1, b: 1, a: 0}
+  panelBorderWidth: 0
+  buttonNormal: {r: 0.92156863, g: 0.92156863, b: 0.92156863, a: 1}
+  buttonHover: {r: 0.47843137, g: 0.47843137, b: 0.47843137, a: 1}
+  buttonPressed: {r: 0.72156864, g: 0.72156864, b: 0.72156864, a: 1}
+  buttonText: {r: 0, g: 0, b: 0, a: 1}
+  buttonSprite: {fileID: 0}
+  buttonCornerRadius: 10
+  padding: 20
+  rowSpacing: 8
+  buttonSpacing: 6

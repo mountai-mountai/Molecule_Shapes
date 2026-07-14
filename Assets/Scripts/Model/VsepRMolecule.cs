@@ -10,6 +10,11 @@ namespace Molecule_Shapes.Model
         // Optional override of the displayed bond length. Null = use PairGroup.BondedPairDistance.
         public float? BondLengthOverride = null;
 
+        // Least-squares attractor error from the most recent Update. 0 when there are fewer than two
+        // radial groups (geometry is trivially settled). Exposed so the game layer can detect when the
+        // molecule has actually "settled" into its ideal geometry and grade build accuracy.
+        public float LastAttractorError { get; private set; }
+
         public VsepRMolecule() : base(isReal: false)
         {
         }
@@ -17,6 +22,9 @@ namespace Molecule_Shapes.Model
         public override void Update(float dt)
         {
             base.Update(dt);
+
+            // Reset each frame; the central-atom branch below overwrites it when it runs.
+            LastAttractorError = 0f;
 
             var radialGroups = RadialGroups;
 
@@ -30,6 +38,7 @@ namespace Molecule_Shapes.Model
                     {
                         // attractive force toward the correct ideal positions
                         float error = GetLocalShape(atom).ApplyAttraction(dt);
+                        LastAttractorError = error;
 
                         // When near an ideal state, force Coulomb to ignore bond-vs-lone-pair distance differences.
                         float trueLengthsRatioOverride = math.max(0f, math.min(1f, math.log(error + 1f) - 0.5f));

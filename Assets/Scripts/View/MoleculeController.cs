@@ -39,8 +39,12 @@ namespace Molecule_Shapes.View
         [Header("Lone pair electrons (optional dots)")]
         [Tooltip("Show two small electron spheres on each lone pair, like PhET.")]
         [SerializeField] private bool showLonePairElectrons = false;
-        [Tooltip("Electron colour; its alpha makes them translucent so they blend with the cloud (and UI behind).")]
+        [Tooltip("Electron colour (its alpha is overridden by Electron Opacity below).")]
         [SerializeField] private Color electronColor = new Color(0.12f, 0.12f, 0.18f, 0.85f);
+        [Tooltip("Electron dot transparency: 0 = fully see-through/invisible, 1 = solid. A simple slider " +
+                 "so you don't have to open the colour picker to tune it.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float electronOpacity = 0.85f;
         [SerializeField] private float electronRadius = 0.25f;
         [Tooltip("Sideways spread of the two electrons (perpendicular to the radial axis).")]
         [SerializeField] private float electronPerp = 0.75f;
@@ -52,6 +56,17 @@ namespace Molecule_Shapes.View
         [SerializeField] private float popInDuration = 0.18f;
         [Tooltip("Seconds for an atom/lone pair to shrink out when removed (0 = instant).")]
         [SerializeField] private float popOutDuration = 0.14f;
+
+        [Header("Recenter")]
+        [Tooltip("Camera the molecule snaps in front of when recentred. Empty = Camera.main (the headset).")]
+        [SerializeField] private Camera viewCamera;
+        [Tooltip("Distance in front of the camera the molecule is placed when recentred (metres).")]
+        [SerializeField] private float recenterDistance = 0.6f;
+        [Tooltip("Also level the placement to the camera's height instead of following where you're looking " +
+                 "up/down (keeps the molecule at a comfortable, consistent height).")]
+        [SerializeField] private bool recenterAtEyeLevel = true;
+        [Tooltip("Also reset the molecule's orientation when recentring.")]
+        [SerializeField] private bool recenterResetsRotation = true;
 
         [Header("Simulation")]
         [SerializeField] private float maxTimestep = 0.025f;
@@ -228,6 +243,33 @@ namespace Molecule_Shapes.View
             for (int i = 0; i < x; i++) if (!AddBondedAtom()) break;
         }
 
+        // Snaps the whole molecule to a fixed distance in front of the camera, so it can be recovered if
+        // it's been grabbed/thrown far away or the player has moved off with the joystick. Works on the
+        // molecule's own transform (all atom/bond views are children), so the model is untouched.
+        public void RecenterInFront()
+        {
+            Camera cam = viewCamera != null ? viewCamera : Camera.main;
+            if (cam == null) return;
+
+            Transform camT = cam.transform;
+            Vector3 forward = camT.forward;
+            if (recenterAtEyeLevel)
+            {
+                forward.y = 0f;                                    // flatten so it lands level, not tilted up/down
+                forward = forward.sqrMagnitude > 1e-6f ? forward.normalized : camT.forward;
+            }
+
+            transform.position = camT.position + forward * recenterDistance;
+            if (recenterResetsRotation) transform.rotation = Quaternion.identity;
+
+            // Clear any residual throw velocity so it doesn't drift after being placed.
+            if (TryGetComponent(out Rigidbody rb) && !rb.isKinematic)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
+        }
+
         // Random non-degenerate unit direction; the attractor sorts out the final geometry.
         private static float3 RandomDirection()
         {
@@ -278,7 +320,9 @@ namespace Molecule_Shapes.View
                 elongation = hasMesh ? 1f : lonePairElongation,
                 pullBack = hasMesh ? lonePairPullback : 0f,   // only the balloon tucks its tip in
                 showElectrons = showLonePairElectrons,
-                electronMaterial = showLonePairElectrons ? CreateTranslucentMaterial(electronColor) : null,
+                electronMaterial = showLonePairElectrons
+                    ? CreateTranslucentMaterial(new Color(electronColor.r, electronColor.g, electronColor.b, electronOpacity))
+                    : null,
                 electronRadius = electronRadius,
                 electronPerp = electronPerp,
                 electronAlong = electronAlong

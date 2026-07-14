@@ -237,6 +237,7 @@ namespace Molecule_Shapes.View
             }
 
             PanelUi.MakeButton(col, _style, "Reset", () => _controller.ResetMolecule(), height: buttonHeight);
+            PanelUi.MakeButton(col, _style, "Recenter", () => _controller.RecenterInFront(), height: buttonHeight);
 
             if (_overlay != null)
                 PanelUi.MakeButton(col, _style, "Toggle Angles", () => _overlay.ToggleVisible(), height: buttonHeight);
@@ -295,14 +296,22 @@ namespace Molecule_Shapes.View
                                             forceExpandHeight: false);
 
             Toggle toggle = MakeCheckbox(row);
-            PanelUi.MakeLabel(row, _style, caption, _style.sectionFontSize, FontStyle.Bold,
-                              TextAnchor.MiddleLeft, geometryCaptionColor, geometryRowHeight);
 
-            // wrap: false so long names like "Trigonal Bipyramidal" stay on one line (no dropped letters);
-            // it overflows to the right into the floating strip's space instead.
+            // wrap: false + a reserved width so the caption ("Electron"/"Molecular") always stays on one
+            // line. Without this, a long popped-out value (e.g. "Trigonal Bipyramidal") squeezes the
+            // caption's cell and its last letter drops to a second line.
+            Text captionText = PanelUi.MakeLabel(row, _style, caption, _style.sectionFontSize, FontStyle.Bold,
+                                                 TextAnchor.MiddleLeft, geometryCaptionColor, geometryRowHeight, wrap: false);
+            LayoutElement capLe = captionText.GetComponent<LayoutElement>();
+            capLe.minWidth = capLe.preferredWidth = captionText.preferredWidth;
+
+            // wrap: false so long names stay on one line; preferredWidth 0 (with flexibleWidth) means the
+            // value only claims the leftover space and overflows visually instead of stealing the caption's.
             Text value = PanelUi.MakeLabel(row, _style, "", _style.sectionFontSize, FontStyle.Normal,
                                            TextAnchor.MiddleLeft, geometryValueColor, geometryRowHeight, wrap: false);
-            value.GetComponent<LayoutElement>().flexibleWidth = 1;
+            LayoutElement valLe = value.GetComponent<LayoutElement>();
+            valLe.minWidth = valLe.preferredWidth = 0f;
+            valLe.flexibleWidth = 1;
             value.gameObject.SetActive(false);                 // pops out when the box is checked
 
             toggle.onValueChanged.AddListener(on => value.gameObject.SetActive(on));

@@ -38,6 +38,11 @@ namespace Molecule_Shapes.View
         [SerializeField] private InputActionReference leftTriggerAction;
         [SerializeField] private InputActionReference rightTriggerAction;
 
+        [Header("Cycle bond order button")]
+        [Tooltip("Controller button that cycles the active atom's bond order. Default = the right " +
+                 "controller's B button. Change to <XRController>{LeftHand}/primaryButton etc. if you like.")]
+        [SerializeField] private string cycleBondButtonBinding = "<XRController>{RightHand}/secondaryButton";
+
         [Header("Pick radii (model units)")]
         [Tooltip("Hit-test radius for atom spheres.")]
         [SerializeField] private float atomPickRadius = 1.4f;
@@ -45,8 +50,11 @@ namespace Molecule_Shapes.View
         [SerializeField] private float lonePairPickRadius = 1.8f;
 
         public bool IsDragging => _leftDrag.Group != null || _rightDrag.Group != null;
+        public bool IsLeftDragging => _leftDrag.Group != null;
+        public bool IsRightDragging => _rightDrag.Group != null;
 
         private MoleculeController _controller;
+        private InputAction _cycleBondAction;
         private readonly DragState _leftDrag = new();
         private readonly DragState _rightDrag = new();
 
@@ -67,11 +75,35 @@ namespace Molecule_Shapes.View
         {
             if (leftTriggerAction != null && leftTriggerAction.action != null) leftTriggerAction.action.Enable();
             if (rightTriggerAction != null && rightTriggerAction.action != null) rightTriggerAction.action.Enable();
+
+            // Code-bound so it needs no action asset wiring - press the controller's B button to cycle bond order.
+            if (_cycleBondAction == null && !string.IsNullOrEmpty(cycleBondButtonBinding))
+            {
+                _cycleBondAction = new InputAction("CycleBondOrder", InputActionType.Button, cycleBondButtonBinding);
+                _cycleBondAction.performed += OnCycleBondPressed;
+            }
+            _cycleBondAction?.Enable();
         }
 
         private void OnDisable()
         {
-            // Don't disable shared actions globally — other scripts may use them.
+            // Don't disable shared trigger actions globally — other scripts may use them.
+            _cycleBondAction?.Disable();
+        }
+
+        private void OnDestroy()
+        {
+            if (_cycleBondAction != null)
+            {
+                _cycleBondAction.performed -= OnCycleBondPressed;
+                _cycleBondAction.Dispose();
+                _cycleBondAction = null;
+            }
+        }
+
+        private void OnCycleBondPressed(InputAction.CallbackContext ctx)
+        {
+            if (_controller != null) _controller.CycleBondOrder();
         }
 
         private void Update()
@@ -137,6 +169,9 @@ namespace Molecule_Shapes.View
 
             state.Group = picked;
             state.Group.UserControlled = true;
+
+            // Triggering a bonded atom makes it the target for Cycle Bond Order (lone pairs don't count).
+            if (!picked.IsLonePair) _controller.SetActiveBondAtom(picked);
         }
 
         private void UpdateDrag(Transform controller, DragState state)

@@ -1,0 +1,209 @@
+using NUnit.Framework;
+using Unity.Mathematics;
+using Molecule_Shapes.Model;
+using Molecule_Shapes.Game;
+
+namespace Molecule_Shapes.Tests
+{
+    // EditMode tests for the pure-C# gamification layer. No scene, no physics needed for the
+    // count-based logic (RadialAtoms/RadialLonePairs update the instant groups are bonded).
+    public class GameTests
+    {
+        // Builds a molecule with exactly x bonded atoms and e lone pairs around the central atom.
+        private static VsepRMolecule BuildMolecule(int x, int e)
+        {
+            var molecule = new VsepRMolecule();
+            var central = new PairGroup(float3.zero, isLonePair: false);
+            molecule.AddCentralAtom(central);
+
+            for (int i = 0; i < e; i++)
+            {
+                var dir = math.normalize(new float3(i + 1, i + 2, i + 3));
+                var lp = new PairGroup(dir * PairGroup.LonePairDistance, isLonePair: true);
+                molecule.AddGroupAndBond(lp, central, bondOrder: 0, bondLength: PairGroup.LonePairDistance);
+            }
+            for (int i = 0; i < x; i++)
+            {
+                var dir = math.normalize(new float3(-i - 1, i + 1, -i - 2));
+                var atom = new PairGroup(dir * PairGroup.BondedPairDistance, isLonePair: false);
+                molecule.AddGroupAndBond(atom, central, bondOrder: 1, bondLength: PairGroup.BondedPairDistance);
+            }
+            return molecule;
+        }
+
+        // --- Goal table -----------------------------------------------------------------------------
+
+        [Test]
+        public void AllValidConfigurations_ResolveToAGeometry()
+        {
+            foreach (MoleculeGoal g in MoleculeGoal.ValidConfigurations)
+            {
+                Assert.DoesNotThrow(() => { var _ = g.Geometry; }, $"{g} threw");
+                Assert.IsNotEmpty(g.GeometryName);
+                Assert.IsNotEmpty(g.AxeFormula);
+            }
+        }
+
+        [Test]
+        public void AxeFormula_FormatsCounts()
+        {
+            Assert.AreEqual("AX4", new MoleculeGoal(4, 0).AxeFormula);
+            Assert.AreEqual("AX2E2", new MoleculeGoal(2, 2).AxeFormula);
+            Assert.AreEqual("AX3E", new MoleculeGoal(3, 1).AxeFormula);
+        }
+
+        // --- Match granularity (the keystone) -------------------------------------------------------
+
+        [Test]
+        public void BuildFromAxe_RequiresExactCounts()
+        {
+            Challenge c = Challenge.Create(LearningObjective.BuildFromAxe, new MoleculeGoal(2, 2));
+
+            Assert.IsTrue(c.IsSatisfiedBy(BuildMolecule(2, 2)), "exact AX2E2 should satisfy");
+            Assert.IsFalse(c.IsSatisfiedBy(BuildMolecule(2, 1)), "AX2E should not satisfy AX2E2");
+            Assert.IsFalse(c.IsSatisfiedBy(BuildMolecule(4, 0)), "AX4 should not satisfy AX2E2");
+        }
+
+        [Test]
+        public void BuildFromName_AcceptsAnyConfigurationWithThatShape()
+        {
+            // Linear is both AX2 (e=0) and AX2E3 (e=3) - a name match must accept either.
+            Challenge c = Challenge.Create(LearningObjective.BuildFromName, new MoleculeGoal(2, 0));
+
+            Assert.IsTrue(c.IsSatisfiedBy(BuildMolecule(2, 0)), "AX2 is Linear");
+            Assert.IsTrue(c.IsSatisfiedBy(BuildMolecule(2, 3)), "AX2E3 is also Linear");
+            Assert.IsFalse(c.IsSatisfiedBy(BuildMolecule(2, 1)), "AX2E is Bent, not Linear");
+            Assert.IsFalse(c.IsSatisfiedBy(BuildMolecule(3, 0)), "AX3 is Trigonal Planar, not Linear");
+        }
+
+        // --- Identify -------------------------------------------------------------------------------
+
+        [Test]
+        public void IdentifyName_HasCorrectOptionAmongChoices()
+        {
+            var gen = new ChallengeGenerator(seed: 7);
+            Challenge c = gen.Next(LearningObjective.IdentifyName, ChallengeDifficulty.Mixed);
+
+            Assert.AreEqual(TaskMode.Identify, c.Task);
+            Assert.GreaterOrEqual(c.Options.Count, 2);
+            Assert.IsTrue(c.CheckAnswer(c.CorrectOptionIndex));
+            Assert.AreEqual(c.Goal.GeometryName, c.Options[c.CorrectOptionIndex]);
+        }
+
+        // --- Generator ------------------------------------------------------------------------------
+
+        [Test]
+        public void Generator_IsDeterministicForAGivenSeed()
+        {
+            var a = new ChallengeGenerator(seed: 42);
+            var b = new ChallengeGenerator(seed: 42);
+            for (int i = 0; i < 20; i++)
+            {
+                Challenge ca = a.Next(LearningObjective.BuildFromAxe, ChallengeDifficulty.Mixed);
+                Challenge cb = b.Next(LearningObjective.BuildFromAxe, ChallengeDifficulty.Mixed);
+                Assert.AreEqual(ca.Goal, cb.Goal, $"seed-42 sequences diverged at {i}");
+            }
+        }
+
+        [Test]
+        public void EasyPool_ContainsNoLonePairs()
+        {
+            foreach (MoleculeGoal g in ChallengeGenerator.GoalsForDifficulty(ChallengeDifficulty.Easy))
+                Assert.AreEqual(0, g.E, $"{g} has lone pairs but is in the Easy pool");
+        }
+
+        // --- Scoring --------------------------------------------------------------------------------
+
+        [Test]
+        public void BasicRules_AwardOnlyBasePoints()
+        {
+            ScoreRules rules = ScoreRules.Basic();
+            ScoreBreakdown b = rules.Compute(elapsedSeconds: 5f, edits: 10, minimumEdits: 2,
+                                             hintsUsed: 3, accuracy01: 0.5f, streakLevel: 4);
+            Assert.AreEqual(rules.basePoints, b.Total, "basic rules should ignore all bonuses/penalties");
+        }
+
+        [Test]
+        public void TimeBonus_DecaysToZeroOverWindow()
+        {
+            var rules = new ScoreRules { basePoints = 0, useTimeBonus = true, timeBonusMax = 100, timeBonusWindowSeconds = 10f };
+            Assert.AreEqual(100, rules.Compute(0f, 1, 1, 0, 1f, 0).Total, "instant solve -> full time bonus");
+            Assert.AreEqual(0, rules.Compute(10f, 1, 1, 0, 1f, 0).Total, "window elapsed -> no time bonus");
+        }
+
+        [Test]
+        public void AttemptPenalty_ChargesPerExtraEdit()
+        {
+            var rules = new ScoreRules { basePoints = 100, useAttemptPenalty = true, attemptPenalty = 10 };
+            // goal needs 2 edits; player made 5 -> 3 extra -> -30.
+            Assert.AreEqual(70, rules.Compute(0f, edits: 5, minimumEdits: 2, hintsUsed: 0, accuracy01: 1f, streakLevel: 0).Total);
+        }
+
+        [Test]
+        public void ScoreModel_TracksStreakAndResets()
+        {
+            var score = new ScoreModel();
+            ScoreRules rules = ScoreRules.Basic();
+            score.RegisterSolve(rules, 1f, 2, 2, 0, 1f);
+            score.RegisterSolve(rules, 1f, 2, 2, 0, 1f);
+            Assert.AreEqual(2, score.Streak);
+            Assert.AreEqual(2, score.BestStreak);
+            score.BreakStreak();
+            Assert.AreEqual(0, score.Streak);
+            Assert.AreEqual(2, score.BestStreak, "best streak should persist after a break");
+        }
+
+        // --- Timer ----------------------------------------------------------------------------------
+
+        [Test]
+        public void CountdownTimer_ExpiresAfterDuration()
+        {
+            var t = new GameTimer();
+            t.StartCountDown(2f);
+            t.Tick(1f);
+            Assert.IsFalse(t.Expired);
+            Assert.AreEqual(1f, t.Remaining, 1e-4f);
+            t.Tick(1.5f);
+            Assert.IsTrue(t.Expired);
+            Assert.AreEqual(0f, t.Remaining, 1e-4f);
+        }
+
+        // --- Full session flow ----------------------------------------------------------------------
+
+        [Test]
+        public void Session_BuildChallenge_SolvesAndScoresWhenMoleculeMatches()
+        {
+            var session = new GameSession();
+            session.StartChallengeRun(LearningObjective.BuildFromAxe, ChallengeDifficulty.Easy,
+                                      ScoreRules.Basic(), seed: 99);
+
+            Challenge posed = session.Current;
+            Assert.IsNotNull(posed, "a challenge should be posed on start");
+
+            // Build a molecule matching the posed goal, then tick once.
+            VsepRMolecule molecule = BuildMolecule(posed.Goal.X, posed.Goal.E);
+            session.Tick(0.02f, molecule);
+
+            Assert.IsTrue(session.CurrentSolved, "matching molecule should solve the challenge");
+            Assert.AreEqual(1, session.Score.Solved);
+            Assert.Greater(session.Score.Total, 0);
+        }
+
+        [Test]
+        public void Session_BuildChallenge_DoesNotSolveForWrongMolecule()
+        {
+            var session = new GameSession();
+            session.StartChallengeRun(LearningObjective.BuildFromAxe, ChallengeDifficulty.Easy,
+                                      ScoreRules.Basic(), seed: 99);
+
+            Challenge posed = session.Current;
+            // Build a deliberately wrong configuration (one extra atom, clamped to valid range).
+            int wrongX = posed.Goal.X >= 6 ? posed.Goal.X - 1 : posed.Goal.X + 1;
+            VsepRMolecule molecule = BuildMolecule(wrongX, posed.Goal.E);
+            session.Tick(0.02f, molecule);
+
+            Assert.IsFalse(session.CurrentSolved);
+            Assert.AreEqual(0, session.Score.Solved);
+        }
+    }
+}
