@@ -75,7 +75,7 @@ namespace Molecule_Shapes.View
         [Tooltip("Show the Level (difficulty) selector. Off = always use Default Difficulty (pools are " +
                  "cumulative, so Mixed/Hard already include every shape).")]
         [SerializeField] private bool showDifficultySelector = true;
-        [SerializeField] private LearningObjective defaultObjective = LearningObjective.BuildFromAxe;
+        [SerializeField] private LearningObjective defaultObjective = LearningObjective.BuildMolecularGeometry;
         [SerializeField] private ChallengeDifficulty defaultDifficulty = ChallengeDifficulty.Mixed;
         [Tooltip("Put each score-breakdown item on its own line under the result.")]
         [SerializeField] private bool multilineBreakdown = true;
@@ -444,25 +444,32 @@ namespace Molecule_Shapes.View
             o == LearningObjective.IdentifyAxe ||
             o == LearningObjective.IdentifyBoth;
 
-        // Cycle to the next objective, skipping AXE modes when they're hidden.
+        // Objectives shown in the Mode selector. AXE modes require the advanced setting; Build Real
+        // Molecule is hidden until its real-molecule table lands (Phase 4).
+        private static bool IsVisible(LearningObjective o)
+        {
+            if (o == LearningObjective.BuildRealMolecule) return false;
+            if (IsAxe(o)) return AppSettings.Current.ShowAxeModes;
+            return true;
+        }
+
+        // Cycle to the next visible objective in the given direction.
         private static LearningObjective StepObjective(LearningObjective current, int dir)
         {
-            bool showAxe = AppSettings.Current.ShowAxeModes;
             var values = (LearningObjective[])Enum.GetValues(typeof(LearningObjective));
             int i = Array.IndexOf(values, current);
             for (int n = 0; n < values.Length; n++)
             {
                 i = (i + dir + values.Length) % values.Length;
-                if (showAxe || !IsAxe(values[i])) return values[i];
+                if (IsVisible(values[i])) return values[i];
             }
             return current;
         }
 
-        // If the current selection is a hidden AXE mode, move it to the nearest visible one.
+        // If the current selection is hidden, move it to the nearest visible one.
         private void ClampObjective()
         {
-            if (!AppSettings.Current.ShowAxeModes && IsAxe(_selObjective))
-                _selObjective = StepObjective(_selObjective, +1);
+            if (!IsVisible(_selObjective)) _selObjective = StepObjective(_selObjective, +1);
         }
 
         // "BuildFromAxe" -> "Build From AXE".

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Mathematics;
 using Molecule_Shapes.Model;
@@ -65,10 +66,10 @@ namespace Molecule_Shapes.Tests
         }
 
         [Test]
-        public void BuildFromName_AcceptsAnyConfigurationWithThatShape()
+        public void BuildMolecularGeometry_AcceptsAnyConfigurationWithThatShape()
         {
             // Linear is both AX2 (e=0) and AX2E3 (e=3) - a name match must accept either.
-            Challenge c = Challenge.Create(LearningObjective.BuildFromName, new MoleculeGoal(2, 0));
+            Challenge c = Challenge.Create(LearningObjective.BuildMolecularGeometry, new MoleculeGoal(2, 0));
 
             Assert.IsTrue(c.IsSatisfiedBy(BuildMolecule(2, 0)), "AX2 is Linear");
             Assert.IsTrue(c.IsSatisfiedBy(BuildMolecule(2, 3)), "AX2E3 is also Linear");
@@ -76,18 +77,43 @@ namespace Molecule_Shapes.Tests
             Assert.IsFalse(c.IsSatisfiedBy(BuildMolecule(3, 0)), "AX3 is Trigonal Planar, not Linear");
         }
 
+        [Test]
+        public void BuildElectronGeometry_MatchesByStericNumber()
+        {
+            // Tetrahedral electron geometry = steric 4: AX4, AX3E, AX2E2 all count; steric 3 does not.
+            Challenge c = Challenge.Create(LearningObjective.BuildElectronGeometry, new MoleculeGoal(4, 0));
+
+            Assert.IsTrue(c.IsSatisfiedBy(BuildMolecule(4, 0)), "AX4 is tetrahedral electron geometry");
+            Assert.IsTrue(c.IsSatisfiedBy(BuildMolecule(3, 1)), "AX3E is also tetrahedral electron geometry");
+            Assert.IsTrue(c.IsSatisfiedBy(BuildMolecule(2, 2)), "AX2E2 is also tetrahedral electron geometry");
+            Assert.IsFalse(c.IsSatisfiedBy(BuildMolecule(3, 0)), "steric 3 is trigonal-planar electron geometry");
+        }
+
         // --- Identify -------------------------------------------------------------------------------
 
         [Test]
-        public void IdentifyName_HasCorrectOptionAmongChoices()
+        public void IdentifyMolecularGeometry_HasCorrectOptionAmongChoices()
         {
             var gen = new ChallengeGenerator(seed: 7);
-            Challenge c = gen.Next(LearningObjective.IdentifyName, ChallengeDifficulty.Mixed);
+            Challenge c = gen.Next(LearningObjective.IdentifyMolecularGeometry, ChallengeDifficulty.Mixed);
 
             Assert.AreEqual(TaskMode.Identify, c.Task);
             Assert.GreaterOrEqual(c.Options.Count, 2);
             Assert.IsTrue(c.CheckAnswer(c.CorrectOptionIndex));
             Assert.AreEqual(c.Goal.GeometryName, c.Options[c.CorrectOptionIndex]);
+        }
+
+        [Test]
+        public void IdentifyElectronGeometry_OptionsAreDistinctAndCorrect()
+        {
+            var gen = new ChallengeGenerator(seed: 11);
+            Challenge c = gen.Next(LearningObjective.IdentifyElectronGeometry, ChallengeDifficulty.Mixed);
+
+            Assert.AreEqual(TaskMode.Identify, c.Task);
+            Assert.IsTrue(c.CheckAnswer(c.CorrectOptionIndex));
+            Assert.AreEqual(c.Goal.ElectronGeometryName, c.Options[c.CorrectOptionIndex]);
+            // No duplicate labels among the choices.
+            CollectionAssert.AllItemsAreUnique(c.Options);
         }
 
         // --- Generator ------------------------------------------------------------------------------
@@ -106,10 +132,31 @@ namespace Molecule_Shapes.Tests
         }
 
         [Test]
-        public void EasyPool_ContainsNoLonePairs()
+        public void EasyPool_IsExactlyTheFiveTeksShapes()
         {
+            var expected = new HashSet<MoleculeGeometryKind>
+            {
+                MoleculeGeometryKind.Linear, MoleculeGeometryKind.Bent, MoleculeGeometryKind.TrigonalPlanar,
+                MoleculeGeometryKind.TrigonalPyramidal, MoleculeGeometryKind.Tetrahedral
+            };
+            var actual = new HashSet<MoleculeGeometryKind>();
             foreach (MoleculeGoal g in ChallengeGenerator.GoalsForDifficulty(ChallengeDifficulty.Easy))
-                Assert.AreEqual(0, g.E, $"{g} has lone pairs but is in the Easy pool");
+                actual.Add(g.Geometry.Kind);
+
+            Assert.IsTrue(expected.SetEquals(actual), "Easy pool must be exactly the five TEKS shapes");
+        }
+
+        [Test]
+        public void DifficultyPools_AreCumulative()
+        {
+            List<MoleculeGoal> easy = ChallengeGenerator.GoalsForDifficulty(ChallengeDifficulty.Easy);
+            List<MoleculeGoal> medium = ChallengeGenerator.GoalsForDifficulty(ChallengeDifficulty.Medium);
+            List<MoleculeGoal> hard = ChallengeGenerator.GoalsForDifficulty(ChallengeDifficulty.Hard);
+
+            foreach (MoleculeGoal g in easy) Assert.Contains(g, medium, "Medium must include every Easy goal");
+            foreach (MoleculeGoal g in medium) Assert.Contains(g, hard, "Hard must include every Medium goal");
+            Assert.Greater(hard.Count, medium.Count);
+            Assert.Greater(medium.Count, easy.Count);
         }
 
         // --- Scoring --------------------------------------------------------------------------------

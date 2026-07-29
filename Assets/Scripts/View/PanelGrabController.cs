@@ -43,9 +43,19 @@ namespace Molecule_Shapes.View
         {
             public Transform Grabbed;
             public bool WasPressed;
-            public bool Upright;     // this grab keeps the panel vertical (not parented to the hand)
-            public Vector3 Offset;   // world offset (panel - controller) captured at grab, upright mode
-            public float Yaw;        // panel yaw held constant while upright
+            public bool Upright;        // this grab keeps the panel vertical (not parented to the hand)
+            public Vector3 LocalOffset; // panel offset expressed in the hand's yaw-only frame, at grab
+            public float YawOffset;     // panel yaw relative to the hand's yaw, at grab
+        }
+
+        // Hand's heading about world-up only (ignores pitch/roll). Uses the flattened forward, falling
+        // back to the flattened up vector when the controller points near-vertical.
+        private static float YawDegrees(Transform t)
+        {
+            Vector3 f = t.forward; f.y = 0f;
+            if (f.sqrMagnitude < 1e-6f) { f = t.up; f.y = 0f; }
+            if (f.sqrMagnitude < 1e-6f) return 0f;
+            return Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
         }
 
         private void OnEnable()
@@ -71,12 +81,14 @@ namespace Molecule_Shapes.View
             if (pressed && !wasPressed) TryGrab(controller, state);
             else if (state.Grabbed != null && !pressed) Release(state);
 
-            // Upright grabs aren't parented to the hand (which would tilt the panel), so follow manually:
-            // translate by the hand's movement while holding the panel vertical at its grab-time yaw.
+            // Upright grabs aren't parented to the hand (which would tilt the panel). Instead we follow a
+            // yaw-only version of the hand: translate + rotate about world-up with it, but never pitch/roll.
             if (pressed && state.Grabbed != null && state.Upright)
             {
-                state.Grabbed.position = controller.position + state.Offset;
-                state.Grabbed.rotation = Quaternion.Euler(0f, state.Yaw, 0f);
+                float yaw = YawDegrees(controller);
+                Quaternion yawRot = Quaternion.Euler(0f, yaw, 0f);
+                state.Grabbed.position = controller.position + yawRot * state.LocalOffset;
+                state.Grabbed.rotation = Quaternion.Euler(0f, yaw + state.YawOffset, 0f);
             }
         }
 
@@ -100,9 +112,12 @@ namespace Molecule_Shapes.View
             state.Upright = AppSettings.Current.PanelsUpright;
             if (state.Upright)
             {
-                // Keep it vertical: remember the world offset + current yaw, follow by translation only.
-                state.Offset = state.Grabbed.position - controller.position;
-                state.Yaw = state.Grabbed.eulerAngles.y;
+                // Record the panel's offset + facing in the hand's yaw-only frame so it tracks the hand's
+                // heading (and translation) while staying vertical.
+                float yaw = YawDegrees(controller);
+                Quaternion invYaw = Quaternion.Inverse(Quaternion.Euler(0f, yaw, 0f));
+                state.LocalOffset = invYaw * (state.Grabbed.position - controller.position);
+                state.YawOffset = state.Grabbed.eulerAngles.y - yaw;
             }
             else
             {

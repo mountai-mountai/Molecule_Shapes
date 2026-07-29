@@ -183,7 +183,8 @@ namespace Molecule_Shapes.View
         {
             if (_geometryStrip == null) return;
             bool givesAnswer = Game != null && Game.Mode == GameMode.Challenge && Game.Current != null
-                               && (Game.Current.Objective == LearningObjective.IdentifyName
+                               && (Game.Current.Objective == LearningObjective.IdentifyMolecularGeometry
+                                   || Game.Current.Objective == LearningObjective.IdentifyElectronGeometry
                                    || Game.Current.Objective == LearningObjective.IdentifyBoth);
             _geometryStrip.SetActive(showGeometryToggles && !givesAnswer);
         }

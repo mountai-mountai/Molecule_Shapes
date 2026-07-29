@@ -21,52 +21,54 @@ namespace Molecule_Shapes.Game
             MoleculeGoal goal = PickDistinct(pool);
             _lastGoal = goal;
 
-            // Identify objectives need wrong choices; pull a few other goals with different answers.
-            IReadOnlyList<MoleculeGoal> distractors = null;
-            if (objective is LearningObjective.IdentifyName
-                or LearningObjective.IdentifyAxe
-                or LearningObjective.IdentifyBoth)
-            {
-                distractors = PickDistractors(goal, count: 3);
-            }
+            // Identify objectives need wrong choices; pull a few other goals with distinct answer labels.
+            IReadOnlyList<MoleculeGoal> distractors = IsIdentify(objective)
+                ? PickDistractorsFor(objective, goal, count: 3)
+                : null;
 
             Challenge challenge = Challenge.Create(objective, goal, distractors);
             return challenge.WithShuffledOptions(_rng);
         }
 
-        // --- Difficulty pools -----------------------------------------------------------------------
+        private static bool IsIdentify(LearningObjective o) =>
+            o is LearningObjective.IdentifyMolecularGeometry
+              or LearningObjective.IdentifyElectronGeometry
+              or LearningObjective.IdentifyAxe
+              or LearningObjective.IdentifyBoth;
 
-        // Difficulty pools are CUMULATIVE: a harder tier includes every goal from the easier tiers plus
-        // its own, so raising difficulty only adds options (never shrinks the set to a back-and-forth
-        // handful). Easy = tier 0 only; Medium = tiers 0-1; Hard = tiers 0-2 (i.e. everything); Mixed =
-        // everything as well. This keeps every mode's option count healthy.
-        public static List<MoleculeGoal> GoalsForDifficulty(ChallengeDifficulty difficulty)
+        // --- Difficulty pools (TEKS-aligned) --------------------------------------------------------
+
+        // Explicit canonical config per shape so Easy stays the five on-level TEKS shapes (no exotic
+        // high-lone-pair configs that merely share a shape name). Pools are CUMULATIVE: Medium = Easy +
+        // its own shapes; Hard/Mixed = everything. Sizes (~5 / 7 / 11) also line up with the intended
+        // per-level question counts.
+        private static readonly MoleculeGoal[] EasyTier =   // bent, linear, trig planar, trig pyramidal, tetrahedral
         {
-            int cap = DifficultyRank(difficulty);
-            var result = new List<MoleculeGoal>();
-            foreach (MoleculeGoal g in MoleculeGoal.ValidConfigurations)
-                if (TierRank(g) <= cap) result.Add(g);
-
-            // Safety: never hand back an empty pool.
-            if (result.Count == 0)
-                foreach (MoleculeGoal g in MoleculeGoal.ValidConfigurations) result.Add(g);
-            return result;
-        }
-
-        // 0 = easiest tier, 2 = hardest. Mixed maps to the top so it includes everything.
-        private static int DifficultyRank(ChallengeDifficulty d) => d switch
+            new(2, 0),  // Linear (CO2)
+            new(2, 2),  // Bent (H2O)
+            new(3, 0),  // Trigonal Planar (BH3)
+            new(3, 1),  // Trigonal Pyramidal (NH3)
+            new(4, 0)   // Tetrahedral (CH4)
+        };
+        private static readonly MoleculeGoal[] MediumTier = // + trigonal bipyramidal, octahedral
         {
-            ChallengeDifficulty.Easy => 0,
-            ChallengeDifficulty.Medium => 1,
-            _ => 2   // Hard and Mixed both include all tiers
+            new(5, 0),  // Trigonal Bipyramidal
+            new(6, 0)   // Octahedral
+        };
+        private static readonly MoleculeGoal[] HardTier =   // + the octet-expanding / lone-pair-rich shapes
+        {
+            new(3, 2),  // T-shaped (ClF3)
+            new(4, 1),  // Seesaw (SF4)
+            new(4, 2),  // Square Planar (XeF4)
+            new(5, 1)   // Square Pyramidal (BrF5)
         };
 
-        // Classifies a goal into a difficulty tier rank (0 easiest .. 2 hardest).
-        private static int TierRank(MoleculeGoal g)
+        public static List<MoleculeGoal> GoalsForDifficulty(ChallengeDifficulty difficulty)
         {
-            if (g.E == 0) return g.StericNumber <= 4 ? 0 : 1;   // no lone pairs
-            if (g.E == 1) return 1;                             // one lone pair
-            return 2;                                           // two or more lone pairs
+            var result = new List<MoleculeGoal>(EasyTier);
+            if (difficulty != ChallengeDifficulty.Easy) result.AddRange(MediumTier);
+            if (difficulty is ChallengeDifficulty.Hard or ChallengeDifficulty.Mixed) result.AddRange(HardTier);
+            return result;
         }
 
         // --- Selection helpers ----------------------------------------------------------------------
@@ -80,22 +82,34 @@ namespace Molecule_Shapes.Game
             return pick;
         }
 
-        private List<MoleculeGoal> PickDistractors(MoleculeGoal goal, int count)
+        // Wrong choices with answer labels DISTINCT from the goal's and from each other, so the multiple
+        // choice always has 4 different options. The "answer" differs per objective (shape name vs
+        // electron-geometry name vs AXE), so we dedupe by the same key the challenge will label with.
+        private List<MoleculeGoal> PickDistractorsFor(LearningObjective objective, MoleculeGoal goal, int count)
         {
-            // Draw from the full valid set so wrong answers can come from any tier; require a distinct
-            // (X,E) from the goal. The Challenge dedupes by answer label afterward.
-            var candidates = new List<MoleculeGoal>();
+            Func<MoleculeGoal, string> key = AnswerKey(objective);
+
+            var byKey = new List<MoleculeGoal>();
+            var seen = new HashSet<string> { key(goal) };
             foreach (MoleculeGoal g in MoleculeGoal.ValidConfigurations)
-                if (!g.Equals(goal)) candidates.Add(g);
+                if (seen.Add(key(g))) byKey.Add(g);   // one representative per distinct answer
 
             var chosen = new List<MoleculeGoal>();
-            while (chosen.Count < count && candidates.Count > 0)
+            while (chosen.Count < count && byKey.Count > 0)
             {
-                int i = _rng.Next(candidates.Count);
-                chosen.Add(candidates[i]);
-                candidates.RemoveAt(i);
+                int i = _rng.Next(byKey.Count);
+                chosen.Add(byKey[i]);
+                byKey.RemoveAt(i);
             }
             return chosen;
         }
+
+        private static Func<MoleculeGoal, string> AnswerKey(LearningObjective o) => o switch
+        {
+            LearningObjective.IdentifyElectronGeometry => g => g.ElectronGeometryName,
+            LearningObjective.IdentifyAxe => g => g.AxeFormula,
+            LearningObjective.IdentifyBoth => g => $"{g.GeometryName} ({g.AxeFormula})",
+            _ => g => g.GeometryName   // IdentifyMolecularGeometry
+        };
     }
 }

@@ -5,9 +5,9 @@
 //   - TaskMode/MatchMode: the mechanical consequences of an objective (do you build it, or name it?).
 //   - ChallengeDifficulty: which configurations are drawn, and the default scoring weighting.
 //
-// Start-basic note: only the Build* objectives (especially BuildFromAxe / BuildFromName) are wired
-// end-to-end first. Identify*/BuildRealMolecule/BuildFromAngles are scaffolded with clear extension
-// points so they can be filled in incrementally without reshaping the layer.
+// Note: BuildMolecularGeometry / BuildElectronGeometry and their Identify* counterparts are the
+// TEKS-facing objectives. BuildFromAxe/IdentifyAxe/IdentifyBoth are AXE-notation "advanced" modes
+// (hidden behind a setting); BuildRealMolecule is scaffolded and hidden until its real-molecule table.
 
 namespace Molecule_Shapes.Game
 {
@@ -19,15 +19,19 @@ namespace Molecule_Shapes.Game
     }
 
     // What the player is practicing. This is the criteria selector: pick by what you want to learn.
+    // NOTE: order is fixed - Unity serializes these by their integer index, so rename in place and only
+    // ever APPEND new values (BuildElectronGeometry / IdentifyElectronGeometry were appended).
     public enum LearningObjective
     {
-        BuildFromName,       // shown a geometry name ("Bent"), build any molecule with that shape
-        BuildFromAxe,        // shown an AXE formula ("AX2E2"), build exactly that count of atoms + lone pairs
-        BuildFromAngles,     // shown target bond angles, build a molecule that settles to them
-        IdentifyName,        // shown a molecule, choose its geometry name
-        IdentifyAxe,         // shown a molecule, choose its AXE formula
-        IdentifyBoth,        // shown a molecule, choose "Name (AXE)"
-        BuildRealMolecule    // shown a real molecule (e.g. "Water"), build it (with its real angles) [stub]
+        BuildMolecularGeometry,     // shown a molecular-geometry name ("Bent"), build any molecule with that shape
+        BuildFromAxe,               // shown an AXE formula ("AX2E2"), build exactly that count [advanced/AXE]
+        BuildFromAngles,            // shown target bond angles, build a molecule that settles to them
+        IdentifyMolecularGeometry,  // shown a molecule, choose its molecular-geometry name
+        IdentifyAxe,                // shown a molecule, choose its AXE formula [advanced/AXE]
+        IdentifyBoth,               // shown a molecule, choose "Name (AXE)" [advanced/AXE]
+        BuildRealMolecule,          // shown a real molecule's formula, build it [needs the real-molecule table]
+        BuildElectronGeometry,      // shown an electron-geometry name, build any molecule with that steric number
+        IdentifyElectronGeometry    // shown a molecule, choose its electron-geometry name
     }
 
     // The mechanical kind of task an objective resolves to.
@@ -40,9 +44,11 @@ namespace Molecule_Shapes.Game
     // How a Build challenge decides "correct".
     public enum MatchMode
     {
-        ExactCounts,    // radial atoms (X) AND radial lone pairs (E) must both match the goal
-        GeometryName    // the resulting molecular-geometry name must match (several X/E can satisfy it,
-                        // e.g. Linear = AX2 or AX2E3) - the right granularity when the prompt is a name
+        ExactCounts,        // radial atoms (X) AND radial lone pairs (E) must both match the goal
+        GeometryName,       // the resulting molecular-geometry name must match (several X/E can satisfy it,
+                            // e.g. Linear = AX2 or AX2E3) - the right granularity when the prompt is a name
+        ElectronGeometry    // the electron geometry must match, i.e. the same steric number (X+E) - any
+                            // arrangement of bonds/lone pairs summing to it counts
     }
 
     // Difficulty tier - selects which goal configurations are eligible and the default ScoreRules preset.

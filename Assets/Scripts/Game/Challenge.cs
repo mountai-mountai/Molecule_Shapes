@@ -61,6 +61,11 @@ namespace Molecule_Shapes.Game
             {
                 countsOk = x == Goal.X && e == Goal.E;
             }
+            else if (Match == MatchMode.ElectronGeometry)
+            {
+                // Same electron geometry = same steric number (any bond/lone-pair split summing to it).
+                countsOk = x >= 1 && (x + e) == Goal.StericNumber;
+            }
             else // GeometryName: any valid config whose shape name matches the goal's
             {
                 countsOk = MoleculeGoal.TryGetGeometry(x, e, out MoleculeGeometry geo)
@@ -89,9 +94,13 @@ namespace Molecule_Shapes.Game
                     return Build(objective, goal, MatchMode.ExactCounts, false,
                         $"Build {goal.AxeFormula}.");
 
-                case LearningObjective.BuildFromName:
+                case LearningObjective.BuildMolecularGeometry:
                     return Build(objective, goal, MatchMode.GeometryName, false,
                         $"Build a {goal.GeometryName} molecule.");
+
+                case LearningObjective.BuildElectronGeometry:
+                    return Build(objective, goal, MatchMode.ElectronGeometry, false,
+                        $"Build a molecule with {goal.ElectronGeometryName} electron geometry.");
 
                 case LearningObjective.BuildFromAngles:
                     // Shape accuracy matters here, so require the molecule to settle.
@@ -104,9 +113,13 @@ namespace Molecule_Shapes.Game
                     return Build(objective, goal, MatchMode.ExactCounts, false,
                         $"Build the molecule with formula {goal.AxeFormula}.");
 
-                case LearningObjective.IdentifyName:
+                case LearningObjective.IdentifyMolecularGeometry:
                     return Identify(objective, goal, distractors, g => g.GeometryName,
-                        "What is this molecule's geometry?");
+                        "What is the molecular geometry?");
+
+                case LearningObjective.IdentifyElectronGeometry:
+                    return Identify(objective, goal, distractors, g => g.ElectronGeometryName,
+                        "What is the electron geometry?");
 
                 case LearningObjective.IdentifyAxe:
                     return Identify(objective, goal, distractors, g => g.AxeFormula,

@@ -99,7 +99,8 @@ namespace Molecule_Shapes.Game
             HintsThisChallenge++;
             return Current.Objective switch
             {
-                LearningObjective.BuildFromName => $"Hint: that shape is {Current.Goal.AxeFormula}.",
+                LearningObjective.BuildMolecularGeometry => $"Hint: that shape is {Current.Goal.AxeFormula}.",
+                LearningObjective.BuildElectronGeometry => $"Hint: {Current.Goal.ElectronGeometryName} electron geometry means {Current.Goal.StericNumber} electron domains.",
                 LearningObjective.BuildFromAxe => $"Hint: {Current.Goal.AxeFormula} is {Current.Goal.GeometryName}.",
                 LearningObjective.BuildFromAngles => $"Hint: angles {Current.Goal.ApproxAngles} → {Current.Goal.GeometryName}.",
                 _ => $"Hint: it has {Current.Goal.X} bonded atom(s) and {Current.Goal.E} lone pair(s)."

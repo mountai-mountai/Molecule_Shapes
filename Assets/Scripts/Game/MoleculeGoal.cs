@@ -26,6 +26,10 @@ namespace Molecule_Shapes.Game
 
         public string GeometryName => Geometry.DisplayName;
 
+        // Electron geometry is fixed by the steric number (X+E): Linear/Trigonal Planar/Tetrahedral/
+        // Trigonal Bipyramidal/Octahedral. Two molecules share an electron geometry iff same steric number.
+        public string ElectronGeometryName => ElectronGeometry.GetConfiguration(StericNumber).DisplayName;
+
         // "AX4", "AX2E2", "AX3E", etc. Uses A for the central atom, X for bonded atoms, E for lone pairs.
         public string AxeFormula
         {
