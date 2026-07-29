@@ -17,6 +17,7 @@
 
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Molecule_Shapes.Game;
 
 namespace Molecule_Shapes.View
 {
@@ -42,6 +43,9 @@ namespace Molecule_Shapes.View
         {
             public Transform Grabbed;
             public bool WasPressed;
+            public bool Upright;     // this grab keeps the panel vertical (not parented to the hand)
+            public Vector3 Offset;   // world offset (panel - controller) captured at grab, upright mode
+            public float Yaw;        // panel yaw held constant while upright
         }
 
         private void OnEnable()
@@ -66,6 +70,14 @@ namespace Molecule_Shapes.View
 
             if (pressed && !wasPressed) TryGrab(controller, state);
             else if (state.Grabbed != null && !pressed) Release(state);
+
+            // Upright grabs aren't parented to the hand (which would tilt the panel), so follow manually:
+            // translate by the hand's movement while holding the panel vertical at its grab-time yaw.
+            if (pressed && state.Grabbed != null && state.Upright)
+            {
+                state.Grabbed.position = controller.position + state.Offset;
+                state.Grabbed.rotation = Quaternion.Euler(0f, state.Yaw, 0f);
+            }
         }
 
         private void TryGrab(Transform controller, HandState state)
@@ -85,12 +97,23 @@ namespace Molecule_Shapes.View
             if (nearest == null) return;
 
             state.Grabbed = nearest.PanelRoot;
-            state.Grabbed.SetParent(controller, worldPositionStays: true);   // follow the hand rigidly
+            state.Upright = AppSettings.Current.PanelsUpright;
+            if (state.Upright)
+            {
+                // Keep it vertical: remember the world offset + current yaw, follow by translation only.
+                state.Offset = state.Grabbed.position - controller.position;
+                state.Yaw = state.Grabbed.eulerAngles.y;
+            }
+            else
+            {
+                state.Grabbed.SetParent(controller, worldPositionStays: true);   // free 6-DOF follow
+            }
         }
 
         private void Release(HandState state)
         {
-            if (state.Grabbed != null) state.Grabbed.SetParent(null, worldPositionStays: true);
+            // Only the free (parented) grab needs unparenting; upright grabs were never parented.
+            if (state.Grabbed != null && !state.Upright) state.Grabbed.SetParent(null, worldPositionStays: true);
             state.Grabbed = null;
         }
     }

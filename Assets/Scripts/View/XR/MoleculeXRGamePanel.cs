@@ -100,7 +100,16 @@ namespace Molecule_Shapes.View
             _game = GetComponent<GameSessionController>();
             _selObjective = defaultObjective;
             _selDifficulty = defaultDifficulty;
+            ClampObjective();                              // don't start on a hidden AXE mode
+            AppSettings.Current.Changed += OnSettingsChanged;
             BuildPanel();
+        }
+
+        // When "Show AXE modes" is toggled in Settings, re-clamp the selection and refresh the label.
+        private void OnSettingsChanged()
+        {
+            ClampObjective();
+            RefreshSelectors();
         }
 
         private void OnEnable() { if (Session != null) Subscribe(); }
@@ -115,6 +124,7 @@ namespace Molecule_Shapes.View
         private void OnDestroy()
         {
             Unsubscribe();
+            AppSettings.Current.Changed -= OnSettingsChanged;
             if (_panelRoot != null) Destroy(_panelRoot);
         }
 
@@ -310,8 +320,8 @@ namespace Molecule_Shapes.View
             PanelUi.MakeLabel(_col, _style, "Mode", _style.subtitleFontSize, FontStyle.Normal,
                               TextAnchor.MiddleCenter, _style.subtitleColor, subtitleHeight);
             _objectiveText = CreateSelectorRow(
-                () => { _selObjective = CycleEnum(_selObjective, -1); RefreshSelectors(); },
-                () => { _selObjective = CycleEnum(_selObjective, +1); RefreshSelectors(); });
+                () => { _selObjective = StepObjective(_selObjective, -1); RefreshSelectors(); },
+                () => { _selObjective = StepObjective(_selObjective, +1); RefreshSelectors(); });
 
             if (showDifficultySelector)
             {
@@ -426,6 +436,33 @@ namespace Molecule_Shapes.View
             int i = Array.IndexOf(values, value);
             i = (i + dir + values.Length) % values.Length;
             return values[i];
+        }
+
+        // AXE-notation objectives, hidden unless "Show AXE modes" is enabled in Settings.
+        private static bool IsAxe(LearningObjective o) =>
+            o == LearningObjective.BuildFromAxe ||
+            o == LearningObjective.IdentifyAxe ||
+            o == LearningObjective.IdentifyBoth;
+
+        // Cycle to the next objective, skipping AXE modes when they're hidden.
+        private static LearningObjective StepObjective(LearningObjective current, int dir)
+        {
+            bool showAxe = AppSettings.Current.ShowAxeModes;
+            var values = (LearningObjective[])Enum.GetValues(typeof(LearningObjective));
+            int i = Array.IndexOf(values, current);
+            for (int n = 0; n < values.Length; n++)
+            {
+                i = (i + dir + values.Length) % values.Length;
+                if (showAxe || !IsAxe(values[i])) return values[i];
+            }
+            return current;
+        }
+
+        // If the current selection is a hidden AXE mode, move it to the nearest visible one.
+        private void ClampObjective()
+        {
+            if (!AppSettings.Current.ShowAxeModes && IsAxe(_selObjective))
+                _selObjective = StepObjective(_selObjective, +1);
         }
 
         // "BuildFromAxe" -> "Build From AXE".

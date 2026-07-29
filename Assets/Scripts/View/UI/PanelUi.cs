@@ -99,6 +99,51 @@ namespace Molecule_Shapes.View
             return t;
         }
 
+        // A labelled checkbox row: [box] Caption. Left-aligned so boxes line up regardless of caption
+        // length. onChanged fires on user toggles (not on the initial value). Returns the Toggle so the
+        // caller can read/drive it later.
+        public static Toggle MakeToggleRow(Transform parent, PanelStyle s, string caption, bool initial,
+                                           Action<bool> onChanged, float rowHeight, float boxSize, Color captionColor)
+        {
+            Transform row = MakeRow(parent, rowHeight, s.buttonSpacing,
+                                    forceExpandWidth: false, childAlignment: TextAnchor.MiddleLeft,
+                                    forceExpandHeight: false);
+
+            // Checkbox
+            var boxGO = new GameObject("Checkbox", typeof(RectTransform));
+            boxGO.transform.SetParent(row, false);
+            Image box = boxGO.AddComponent<Image>();
+            if (s.buttonCornerRadius > 0)
+            {
+                box.sprite = RoundedSprite(Mathf.Min(s.buttonCornerRadius, 8), 0, Color.white, Color.clear);
+                box.type = Image.Type.Sliced;
+            }
+            box.color = s.buttonNormal;
+
+            Toggle toggle = boxGO.AddComponent<Toggle>();
+            toggle.targetGraphic = box;
+
+            var checkGO = new GameObject("Check", typeof(RectTransform));
+            checkGO.transform.SetParent(boxGO.transform, false);
+            RectTransform crt = checkGO.GetComponent<RectTransform>();
+            crt.anchorMin = new Vector2(0.22f, 0.22f); crt.anchorMax = new Vector2(0.78f, 0.78f);
+            crt.offsetMin = Vector2.zero; crt.offsetMax = Vector2.zero;
+            Image checkImg = checkGO.AddComponent<Image>();
+            checkImg.color = s.goodColor;
+            toggle.graphic = checkImg;
+
+            LayoutElement le = boxGO.AddComponent<LayoutElement>();
+            le.minWidth = le.preferredWidth = boxSize;
+            le.minHeight = le.preferredHeight = boxSize;
+
+            MakeLabel(row, s, caption, s.bodyFontSize, FontStyle.Normal, TextAnchor.MiddleLeft,
+                      captionColor, rowHeight, wrap: false);
+
+            toggle.SetIsOnWithoutNotify(initial);                 // don't fire during construction
+            if (onChanged != null) toggle.onValueChanged.AddListener(v => onChanged(v));
+            return toggle;
+        }
+
         // A vertical layout column. If fillParent it stretches to the parent (inset by padding); else it
         // is content-sized (a LayoutElement, added by the caller, controls its height).
         public static Transform MakeColumn(Transform parent, PanelStyle s, float spacing, bool fillParent)
