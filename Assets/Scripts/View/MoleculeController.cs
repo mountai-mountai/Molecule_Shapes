@@ -398,6 +398,10 @@ namespace Molecule_Shapes.View
             if (mat.HasProperty("_AlphaClip")) mat.SetFloat("_AlphaClip", 0f);
             if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
             if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            // Alpha channel blended One/One so translucent lone pairs/electrons preserve (never lower) the
+            // framebuffer alpha - otherwise passthrough bleeds through them against a solid VR background.
+            if (mat.HasProperty("_SrcBlendAlpha")) mat.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            if (mat.HasProperty("_DstBlendAlpha")) mat.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
             if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
             if (mat.HasProperty("_QueueControl")) mat.SetFloat("_QueueControl", 1f); // URP 14+: User override
 

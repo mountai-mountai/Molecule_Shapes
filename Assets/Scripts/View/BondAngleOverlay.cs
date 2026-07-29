@@ -414,6 +414,10 @@ namespace Molecule_Shapes.View
             if (mat.HasProperty("_AlphaClip")) mat.SetFloat("_AlphaClip", 0f);
             if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
             if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            // Alpha channel blended One/One so translucent geometry preserves (never lowers) framebuffer
+            // alpha - otherwise passthrough bleeds through the arcs against a solid/partial VR background.
+            if (mat.HasProperty("_SrcBlendAlpha")) mat.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            if (mat.HasProperty("_DstBlendAlpha")) mat.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
             if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
             if (mat.HasProperty("_QueueControl")) mat.SetFloat("_QueueControl", 1f);
 
@@ -438,6 +442,10 @@ namespace Molecule_Shapes.View
             if (mat.HasProperty("_AlphaClip")) mat.SetFloat("_AlphaClip", 0f);
             if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
             if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            // Alpha channel blended One/One so translucent geometry preserves (never lowers) framebuffer
+            // alpha - otherwise passthrough bleeds through the arcs against a solid/partial VR background.
+            if (mat.HasProperty("_SrcBlendAlpha")) mat.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            if (mat.HasProperty("_DstBlendAlpha")) mat.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
             if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
             if (mat.HasProperty("_Cull")) mat.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Off);   // both sides
             if (mat.HasProperty("_QueueControl")) mat.SetFloat("_QueueControl", 1f);

@@ -1090,6 +1090,7 @@ GameObject:
   - component: {fileID: 1016964712}
   - component: {fileID: 1016964714}
   - component: {fileID: 1016964713}
+  - component: {fileID: 1016964715}
   m_Layer: 0
   m_Name: OVR
   m_TagString: Untagged
@@ -1269,6 +1270,27 @@ MonoBehaviour:
   _readOnlyWideMotionMode2HandPosesEnabled: 0
   wideMotionMode2HandPosesEnabled: 0
   dynamicResolutionVersion: 1
+--- !u!114 &1016964715
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1016964710}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 03beed8726c85894dbf0b9888a625dc7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.PassthroughController
+  passthroughLayerObject: {fileID: 1016964710}
+  targetCamera: {fileID: 281740272}
+  background: {fileID: 484111690}
+  vrBackgroundColor: {r: 0, g: 0, b: 0, a: 0}
+  blend: 1
+  toggleDuration: 0.35
+  scrubSpeed: 1.35
+  holdThreshold: 0.25
+  buttonBinding: <XRController>{LeftHand}/secondaryButton
 --- !u!1001 &1908819432
 PrefabInstance:
   m_ObjectHideFlags: 0

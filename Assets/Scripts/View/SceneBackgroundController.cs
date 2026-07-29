@@ -20,6 +20,9 @@ namespace Molecule_Shapes.View
         [SerializeField] private bool solidColorBackground = true;
         [SerializeField] private Color backgroundColor = new Color(0.03f, 0.04f, 0.07f, 1f);
 
+        /// <summary>The configured VR background colour, so PassthroughController can crossfade to it.</summary>
+        public Color BackgroundColor => backgroundColor;
+
         [Header("Ambient light")]
         [Tooltip("Override the scene's flat ambient colour (the base light on everything).")]
         [SerializeField] private bool overrideAmbient = true;
