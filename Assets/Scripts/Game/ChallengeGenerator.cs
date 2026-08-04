@@ -21,13 +21,26 @@ namespace Molecule_Shapes.Game
             MoleculeGoal goal = PickDistinct(pool);
             _lastGoal = goal;
 
-            // Identify objectives need wrong choices; pull a few other goals with distinct answer labels.
+            // Identify objectives need wrong choices; pull a few other goals with distinct answer labels,
+            // drawn from THIS difficulty's pool so the options never include shapes above the level.
             IReadOnlyList<MoleculeGoal> distractors = IsIdentify(objective)
-                ? PickDistractorsFor(objective, goal, count: 3)
+                ? PickDistractorsFor(objective, goal, pool, count: 3)
                 : null;
 
             Challenge challenge = Challenge.Create(objective, goal, distractors);
             return challenge.WithShuffledOptions(_rng);
+        }
+
+        // Builds a challenge for a SPECIFIC goal (used by finite rounds), with distractors constrained to
+        // the difficulty pool. Distinct from Next(), which picks the goal randomly.
+        public Challenge ForGoal(LearningObjective objective, MoleculeGoal goal, ChallengeDifficulty difficulty)
+        {
+            _lastGoal = goal;
+            List<MoleculeGoal> pool = GoalsForDifficulty(difficulty);
+            IReadOnlyList<MoleculeGoal> distractors = IsIdentify(objective)
+                ? PickDistractorsFor(objective, goal, pool, count: 3)
+                : null;
+            return Challenge.Create(objective, goal, distractors).WithShuffledOptions(_rng);
         }
 
         private static bool IsIdentify(LearningObjective o) =>
@@ -85,14 +98,15 @@ namespace Molecule_Shapes.Game
         // Wrong choices with answer labels DISTINCT from the goal's and from each other, so the multiple
         // choice always has 4 different options. The "answer" differs per objective (shape name vs
         // electron-geometry name vs AXE), so we dedupe by the same key the challenge will label with.
-        private List<MoleculeGoal> PickDistractorsFor(LearningObjective objective, MoleculeGoal goal, int count)
+        private List<MoleculeGoal> PickDistractorsFor(LearningObjective objective, MoleculeGoal goal,
+                                                      List<MoleculeGoal> pool, int count)
         {
             Func<MoleculeGoal, string> key = AnswerKey(objective);
 
             var byKey = new List<MoleculeGoal>();
             var seen = new HashSet<string> { key(goal) };
-            foreach (MoleculeGoal g in MoleculeGoal.ValidConfigurations)
-                if (seen.Add(key(g))) byKey.Add(g);   // one representative per distinct answer
+            foreach (MoleculeGoal g in pool)
+                if (seen.Add(key(g))) byKey.Add(g);   // one representative per distinct answer, within the level
 
             var chosen = new List<MoleculeGoal>();
             while (chosen.Count < count && byKey.Count > 0)

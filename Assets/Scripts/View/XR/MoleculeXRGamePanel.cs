@@ -172,6 +172,7 @@ namespace Molecule_Shapes.View
             Session.ChallengeSolved += OnChallengeSolved;
             Session.AnswerJudged += OnAnswerJudged;
             Session.ChallengeTimedOut += OnChallengeTimedOut;
+            Session.RoundCompleted += OnRoundCompleted;
             Session.StateChanged += OnStateChanged;
             _subscribed = true;
         }
@@ -183,6 +184,7 @@ namespace Molecule_Shapes.View
             Session.ChallengeSolved -= OnChallengeSolved;
             Session.AnswerJudged -= OnAnswerJudged;
             Session.ChallengeTimedOut -= OnChallengeTimedOut;
+            Session.RoundCompleted -= OnRoundCompleted;
             Session.StateChanged -= OnStateChanged;
             _subscribed = false;
         }
@@ -203,11 +205,24 @@ namespace Molecule_Shapes.View
             int penalty = Session != null ? Session.Rules.wrongAnswerPenalty : 0;
             string red = Hex(_style.badColor);
             string lost = penalty > 0 ? $"  <color={red}>−{penalty}</color>" : "";
-            SetFeedback($"Wrong.{lost}", _style.textColor);
+            // "Try Again" (or the chosen phrase) instead of "Wrong", to reduce fear of failure.
+            SetFeedback($"{AppSettings.Current.LosingPhrase}{lost}", _style.textColor);
         }
 
         private void OnChallengeTimedOut(Challenge c) =>
             SetFeedback($"Time's up - it was {c.Goal.GeometryName}.", _style.badColor);
+
+        // End of a finite round: show the score summary (the GameAudio component plays the celebration).
+        private void OnRoundCompleted()
+        {
+            ClearAnswers();
+            if (_promptText != null) _promptText.text = "Round complete!";
+            int correct = Session != null ? Session.CorrectThisRound : 0;
+            int total = Session != null ? Session.RoundLength : 0;
+            int score = Session != null ? Session.Score.Total : 0;
+            SetFeedback($"<color={Hex(_style.goodColor)}>You got {correct}/{total}</color>\nScore {score}",
+                        _style.textColor);
+        }
 
         private void OnStateChanged()
         {
@@ -235,7 +250,10 @@ namespace Molecule_Shapes.View
             string timer = Session.Timer.Mode == TimerMode.CountDown
                 ? $"{Session.Timer.Remaining:0.0}s left"
                 : $"{Session.Timer.Elapsed:0.0}s";
-            _infoText.text = $"Score {Session.Score.Total}\nStreak {Session.Score.Streak}   {timer}";
+            string progress = Session.RoundActive && Session.RoundLength > 0
+                ? $"   Q {Session.RoundPosed}/{Session.RoundLength}"
+                : "";
+            _infoText.text = $"Score {Session.Score.Total}\nStreak {Session.Score.Streak}   {timer}{progress}";
         }
 
         private void RefreshSelectors()

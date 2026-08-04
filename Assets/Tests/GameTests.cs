@@ -147,6 +147,34 @@ namespace Molecule_Shapes.Tests
         }
 
         [Test]
+        public void FiniteRound_CoversEachShapeOnceThenCompletes()
+        {
+            var session = new GameSession();
+            bool completed = false;
+            session.RoundCompleted += () => completed = true;
+            session.StartChallengeRun(LearningObjective.BuildMolecularGeometry, ChallengeDifficulty.Easy,
+                                      ScoreRules.Basic(), seed: 3);
+
+            int length = session.RoundLength;
+            Assert.AreEqual(5, length, "Easy round = the five TEKS shapes");
+
+            var seen = new HashSet<MoleculeGeometryKind>();
+            for (int q = 0; q < length; q++)
+            {
+                Challenge c = session.Current;
+                Assert.IsNotNull(c, $"question {q} should be posed");
+                seen.Add(c.Goal.Geometry.Kind);
+                session.Tick(0.1f, BuildMolecule(c.Goal.X, c.Goal.E));   // build the goal -> solves
+                Assert.IsTrue(session.CurrentSolved, $"building the goal should solve question {q}");
+                session.NextChallenge();
+            }
+
+            Assert.IsTrue(completed, "round completes after the last question");
+            Assert.AreEqual(5, session.CorrectThisRound);
+            Assert.AreEqual(5, seen.Count, "each of the five shapes appears exactly once");
+        }
+
+        [Test]
         public void DifficultyPools_AreCumulative()
         {
             List<MoleculeGoal> easy = ChallengeGenerator.GoalsForDifficulty(ChallengeDifficulty.Easy);

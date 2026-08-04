@@ -4,6 +4,7 @@
 // HUD subscribes to its events. No Unity dependency here keeps the whole flow EditMode-testable.
 
 using System;
+using System.Collections.Generic;
 using Molecule_Shapes.Model;
 
 namespace Molecule_Shapes.Game
@@ -28,11 +29,20 @@ namespace Molecule_Shapes.Game
         private bool _useCountdown;
         private float _countdownSeconds;
 
+        // --- Round state (a finite quiz covering each shape in the level once) -----------------------
+        private readonly List<MoleculeGoal> _playlist = new();
+        private int _posed;                                     // challenges posed so far this round
+        public bool RoundActive { get; private set; }
+        public int RoundLength => _playlist.Count;             // total questions this round
+        public int RoundPosed => _posed;                       // current question number (1..RoundLength)
+        public int CorrectThisRound { get; private set; }
+
         // --- Events (the HUD listens to these) ------------------------------------------------------
         public event Action<Challenge> ChallengeStarted;       // a fresh challenge was posed
         public event Action<Challenge, ScoreBreakdown> ChallengeSolved;
         public event Action<Challenge, bool> AnswerJudged;     // Identify: (challenge, wasCorrect)
         public event Action<Challenge> ChallengeTimedOut;
+        public event Action RoundCompleted;                    // the last question of a round finished
         public event Action StateChanged;                      // mode/objective/difficulty changed
 
         // --- Configuration --------------------------------------------------------------------------
@@ -48,11 +58,15 @@ namespace Molecule_Shapes.Game
         {
             Mode = GameMode.Sandbox;
             Current = null;
+            RoundActive = false;
+            _playlist.Clear();
+            _posed = 0;
             Timer.Reset();
             StateChanged?.Invoke();
         }
 
-        // Starts a scored Challenge run. `rules == null` uses the difficulty preset.
+        // Starts a scored Challenge run: a finite round whose questions are the level's shapes in random
+        // order (each once), so students see every shape. `rules == null` uses the difficulty preset.
         public void StartChallengeRun(LearningObjective objective, ChallengeDifficulty difficulty,
                                       ScoreRules rules = null, int? seed = null)
         {
@@ -63,18 +77,49 @@ namespace Molecule_Shapes.Game
             _seed = seed ?? Environment.TickCount;
             _generator = new ChallengeGenerator(_seed);
             Score.Reset();
+
+            BuildPlaylist(difficulty);
+            RoundActive = true;
+            CorrectThisRound = 0;
+            _posed = 0;
+
             StateChanged?.Invoke();
             NextChallenge();
+        }
+
+        // Shuffles the level's goals into the round playlist (Fisher-Yates, seeded for reproducibility).
+        private void BuildPlaylist(ChallengeDifficulty difficulty)
+        {
+            _playlist.Clear();
+            _playlist.AddRange(ChallengeGenerator.GoalsForDifficulty(difficulty));
+            var rng = new Random(_seed);
+            for (int i = _playlist.Count - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (_playlist[i], _playlist[j]) = (_playlist[j], _playlist[i]);
+            }
         }
 
         // --- Challenge flow -------------------------------------------------------------------------
 
         public void NextChallenge()
         {
-            if (Mode != GameMode.Challenge) return;
+            if (Mode != GameMode.Challenge || !RoundActive) return;   // round finished -> Start a new one
             if (_generator == null) _generator = new ChallengeGenerator(_seed);
 
-            Current = _generator.Next(Objective, Difficulty);
+            // End of a finite round: report and stop (the HUD shows the summary / plays the celebration).
+            if (_posed >= _playlist.Count)
+            {
+                RoundActive = false;
+                Current = null;
+                Timer.Pause();
+                RoundCompleted?.Invoke();
+                return;
+            }
+
+            Current = _generator.ForGoal(Objective, _playlist[_posed], Difficulty);   // next scripted question
+            _posed++;
+
             CurrentSolved = false;
             EditsThisChallenge = 0;
             HintsThisChallenge = 0;
@@ -152,6 +197,7 @@ namespace Molecule_Shapes.Game
         private void RegisterSolve(float accuracy01)
         {
             CurrentSolved = true;
+            CorrectThisRound++;
             ScoreBreakdown b = Score.RegisterSolve(Rules, Timer.Elapsed, EditsThisChallenge,
                 Current.MinimumEdits, HintsThisChallenge, accuracy01);
             Timer.Pause();
