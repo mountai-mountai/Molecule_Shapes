@@ -60,7 +60,7 @@ namespace Molecule_Shapes.View
             colors.highlightedColor = s.buttonHover;
             colors.pressedColor = s.buttonPressed;
             colors.selectedColor = s.buttonHover;
-            colors.disabledColor = s.buttonNormal;
+            colors.disabledColor = s.buttonDisabled;   // visibly dark when the button would do nothing
             colors.colorMultiplier = 1f;
             btn.colors = colors;
             btn.targetGraphic = img;

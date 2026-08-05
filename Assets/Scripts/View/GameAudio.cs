@@ -48,6 +48,14 @@ namespace Molecule_Shapes.View
             _source = gameObject.AddComponent<AudioSource>();
             _source.playOnAwake = false;
             _source.spatialBlend = 0f;   // 2D UI sound, not positional
+            EnsureOptions();
+        }
+
+        // Built lazily so it doesn't matter whether this Awake or the settings panel's runs first
+        // (Unity doesn't order Awake between components).
+        private void EnsureOptions()
+        {
+            if (_options.Count > 0) return;
 
             BuildOptions(SoundCategory.Correct, correctClips, new[]
             {
@@ -88,12 +96,17 @@ namespace Molecule_Shapes.View
         /// <summary>Display names of the choices for a category ("None" first).</summary>
         public IReadOnlyList<string> OptionNames(SoundCategory category)
         {
+            EnsureOptions();
             var names = new List<string>();
             foreach ((string name, AudioClip _) in _options[category]) names.Add(name);
             return names;
         }
 
-        public int OptionCount(SoundCategory category) => _options[category].Count;
+        public int OptionCount(SoundCategory category)
+        {
+            EnsureOptions();
+            return _options[category].Count;
+        }
 
         /// <summary>Plays a category's currently-selected sound, ignoring the on/off setting (so the
         /// Settings panel can audition a choice as you step through it).</summary>
@@ -130,13 +143,14 @@ namespace Molecule_Shapes.View
         {
             AppSettings s = AppSettings.Current;
             if (!force && !s.SoundEnabled) return;
+            EnsureOptions();
             if (!_options.TryGetValue(category, out var list) || list.Count == 0) return;
 
             int i = s.GetSoundIndex(category);
             if (i <= 0 || i >= list.Count) return;      // 0 = None, or a stale index -> silent
 
             AudioClip clip = list[i].clip;
-            if (clip != null) _source.PlayOneShot(clip, volume * s.MasterVolume);
+            if (clip != null && _source != null) _source.PlayOneShot(clip, volume * s.MasterVolume);
         }
 
         // Sequential sine notes with a short decay envelope - a usable placeholder with no assets.

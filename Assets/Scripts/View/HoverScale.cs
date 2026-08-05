@@ -24,12 +24,18 @@ namespace Molecule_Shapes.View
         private Vector3 _restScale;
         private Vector3 _targetScale;
         private Outline _outline;
+        private Selectable _selectable;
         private bool _hovered;
+
+        // A disabled control (e.g. Next/Hint outside a game) must not grow or outline - it should read
+        // as unavailable, not as something you're about to press.
+        private bool Interactable => _selectable == null || _selectable.IsInteractable();
 
         private void Awake()
         {
             _restScale = transform.localScale;
             _targetScale = _restScale;
+            _selectable = GetComponent<Selectable>();
 
             if (OutlineColor.a > 0f)
             {
@@ -52,6 +58,9 @@ namespace Molecule_Shapes.View
 
         private void Update()
         {
+            // If it became disabled while hovered, drop the highlight immediately.
+            if (_hovered && !Interactable) ClearHover();
+
             if (transform.localScale == _targetScale) return;
             float step = Duration > 0f ? Time.unscaledDeltaTime / Duration : 1f;
             transform.localScale = Vector3.Lerp(transform.localScale, _targetScale, Mathf.Clamp01(step * 2f));
@@ -59,16 +68,19 @@ namespace Molecule_Shapes.View
 
         public void OnPointerEnter(PointerEventData eventData)
         {
+            if (!Interactable) return;
             _hovered = true;
             _targetScale = _restScale * HoverScaleFactor;
             if (_outline != null) _outline.enabled = true;
         }
 
-        public void OnPointerExit(PointerEventData eventData)
+        private void ClearHover()
         {
             _hovered = false;
             _targetScale = _restScale;
             if (_outline != null) _outline.enabled = false;
         }
+
+        public void OnPointerExit(PointerEventData eventData) => ClearHover();
     }
 }

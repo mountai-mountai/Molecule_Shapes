@@ -37,6 +37,17 @@ namespace Molecule_Shapes.View
         [Tooltip("Maximum distance the grab ray reaches for a panel handle (metres).")]
         [SerializeField] private float maxRayDistance = 5f;
 
+        [Header("Interaction arbitration (one grab at a time)")]
+        [Tooltip("The molecule's XR Grab Interactable. While a panel is held it's disabled, so the same " +
+                 "grip press can't drag the molecule and the panel at once. Typed as Behaviour so this " +
+                 "script needs no XRI reference - just drag the component in.")]
+        [SerializeField] private Behaviour moleculeGrabInteractable;
+        [Tooltip("Atom-drag controller. A hand already dragging an atom won't also grab a panel.")]
+        [SerializeField] private MoleculeXRDragController dragController;
+
+        /// <summary>True when that hand is currently holding a panel (so other interactions stand down).</summary>
+        public bool IsHoldingPanel(bool leftHand) => (leftHand ? _left : _right).Grabbed != null;
+
         private readonly HandState _left = new();
         private readonly HandState _right = new();
 
@@ -71,9 +82,20 @@ namespace Molecule_Shapes.View
 
         private void Update()
         {
-            UpdateHand(leftController, leftGripAction, _left);
-            UpdateHand(rightController, rightGripAction, _right);
+            UpdateHand(leftController, leftGripAction, _left, leftHand: true);
+            UpdateHand(rightController, rightGripAction, _right, leftHand: false);
             UpdateHoverHighlight();
+            UpdateMoleculeSuppression();
+        }
+
+        // While either hand holds a panel, switch the molecule's grab interactable off so a grip aimed
+        // through the molecule at a panel handle moves only the panel (previously it moved both).
+        private void UpdateMoleculeSuppression()
+        {
+            if (moleculeGrabInteractable == null) return;
+            bool holdingPanel = _left.Grabbed != null || _right.Grabbed != null;
+            if (moleculeGrabInteractable.enabled == holdingPanel)
+                moleculeGrabInteractable.enabled = !holdingPanel;
         }
 
         // Highlights whichever handle each controller is pointing at (and a held one), so it's obvious
@@ -110,7 +132,7 @@ namespace Molecule_Shapes.View
             if (hit != null) _hoveredNow.Add(hit);
         }
 
-        private void UpdateHand(Transform controller, InputActionReference gripRef, HandState state)
+        private void UpdateHand(Transform controller, InputActionReference gripRef, HandState state, bool leftHand)
         {
             if (controller == null || gripRef == null || gripRef.action == null) return;
 
@@ -118,7 +140,11 @@ namespace Molecule_Shapes.View
             bool wasPressed = state.WasPressed;
             state.WasPressed = pressed;
 
-            if (pressed && !wasPressed) TryGrab(controller, state);
+            // A hand already dragging an atom (trigger) doesn't also pick up a panel with grip.
+            bool handBusy = dragController != null &&
+                            (leftHand ? dragController.IsLeftDragging : dragController.IsRightDragging);
+
+            if (pressed && !wasPressed && !handBusy) TryGrab(controller, state);
             else if (state.Grabbed != null && !pressed) Release(state);
 
             // Upright grabs aren't parented to the hand (which would tilt the panel). Instead we follow a

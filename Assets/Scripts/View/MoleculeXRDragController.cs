@@ -49,6 +49,10 @@ namespace Molecule_Shapes.View
         [Tooltip("Hit-test radius for lone-pair balloons.")]
         [SerializeField] private float lonePairPickRadius = 1.8f;
 
+        [Header("Interaction arbitration (one grab at a time)")]
+        [Tooltip("Panel grab controller. A hand holding a panel won't also start dragging an atom.")]
+        [SerializeField] private PanelGrabController panelGrabController;
+
         public bool IsDragging => _leftDrag.Group != null || _rightDrag.Group != null;
         public bool IsLeftDragging => _leftDrag.Group != null;
         public bool IsRightDragging => _rightDrag.Group != null;
@@ -108,11 +112,11 @@ namespace Molecule_Shapes.View
 
         private void Update()
         {
-            UpdateHand(leftController, leftTriggerAction, _leftDrag);
-            UpdateHand(rightController, rightTriggerAction, _rightDrag);
+            UpdateHand(leftController, leftTriggerAction, _leftDrag, leftHand: true);
+            UpdateHand(rightController, rightTriggerAction, _rightDrag, leftHand: false);
         }
 
-        private void UpdateHand(Transform controller, InputActionReference triggerRef, DragState state)
+        private void UpdateHand(Transform controller, InputActionReference triggerRef, DragState state, bool leftHand)
         {
             if (controller == null || triggerRef == null || triggerRef.action == null) return;
 
@@ -120,7 +124,11 @@ namespace Molecule_Shapes.View
             bool wasPressed = state.WasPressed;
             state.WasPressed = pressed;
 
-            if (pressed && !wasPressed)
+            // A hand already holding a panel by its handle doesn't also start dragging an atom, so the
+            // trigger + grip combination can't move both at once.
+            bool holdingPanel = panelGrabController != null && panelGrabController.IsHoldingPanel(leftHand);
+
+            if (pressed && !wasPressed && !holdingPanel)
             {
                 TryBeginDrag(controller, state);
             }

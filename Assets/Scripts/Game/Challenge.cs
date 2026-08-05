@@ -103,15 +103,16 @@ namespace Molecule_Shapes.Game
                         $"Build a molecule with {goal.ElectronGeometryName} electron geometry.");
 
                 case LearningObjective.BuildFromAngles:
-                    // Shape accuracy matters here, so require the molecule to settle.
-                    return Build(objective, goal, MatchMode.GeometryName, true,
+                    // Angles are set by the ELECTRON geometry, so any molecule with the right steric
+                    // number is a correct answer (seesaw and trigonal bipyramidal genuinely share
+                    // 90/120/180). Requires settling, since the formed angles are the point.
+                    return Build(objective, goal, MatchMode.ElectronGeometry, true,
                         $"Build a molecule with bond angles of {goal.ApproxAngles}.");
 
                 case LearningObjective.BuildRealMolecule:
-                    // STUB: real-molecule presets (elements + measured angles) land with the RealMolecule
-                    // screen. For now this behaves like an exact-count VSEPR build of the same geometry.
+                    // Formula-only prompt (no AXE) - see CreateReal, which carries the formula/name.
                     return Build(objective, goal, MatchMode.ExactCounts, false,
-                        $"Build the molecule with formula {goal.AxeFormula}.");
+                        $"Build a molecule with {goal.X} bonded atom(s) and {goal.E} lone pair(s).");
 
                 case LearningObjective.IdentifyMolecularGeometry:
                     return Identify(objective, goal, distractors, g => g.GeometryName,
@@ -132,6 +133,14 @@ namespace Molecule_Shapes.Game
                 default:
                     return Build(objective, goal, MatchMode.ExactCounts, false, $"Build {goal.AxeFormula}.");
             }
+        }
+
+        // A "build this real molecule" challenge, prompted by FORMULA (never AXE). Judged on exact
+        // counts: bond order is visual only in VSEPR, so CO2's double bonds aren't part of the answer.
+        public static Challenge CreateReal(RealMoleculeSpec spec)
+        {
+            return Build(LearningObjective.BuildRealMolecule, spec.Goal, MatchMode.ExactCounts, false,
+                         $"Build {spec.Formula}");
         }
 
         private static Challenge Build(LearningObjective objective, MoleculeGoal goal, MatchMode match,

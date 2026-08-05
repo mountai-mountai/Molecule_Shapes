@@ -29,11 +29,14 @@ namespace Molecule_Shapes.Game
         private bool _useCountdown;
         private float _countdownSeconds;
 
-        // --- Round state (a finite quiz covering each shape in the level once) -----------------------
+        // --- Round state (a finite quiz covering each item in the level once) ------------------------
+        // Shape objectives run off _playlist; Build Real Molecule runs off _realPlaylist (formulas).
         private readonly List<MoleculeGoal> _playlist = new();
+        private readonly List<RealMoleculeSpec> _realPlaylist = new();
+        private bool _realRound;
         private int _posed;                                     // challenges posed so far this round
         public bool RoundActive { get; private set; }
-        public int RoundLength => _playlist.Count;             // total questions this round
+        public int RoundLength => _realRound ? _realPlaylist.Count : _playlist.Count;
         public int RoundPosed => _posed;                       // current question number (1..RoundLength)
         public int CorrectThisRound { get; private set; }
 
@@ -60,6 +63,8 @@ namespace Molecule_Shapes.Game
             Current = null;
             RoundActive = false;
             _playlist.Clear();
+            _realPlaylist.Clear();
+            _realRound = false;
             _posed = 0;
             Timer.Reset();
             StateChanged?.Invoke();
@@ -87,16 +92,34 @@ namespace Molecule_Shapes.Game
             NextChallenge();
         }
 
-        // Shuffles the level's goals into the round playlist (Fisher-Yates, seeded for reproducibility).
+        // Shuffles the level's items into the round playlist (Fisher-Yates, seeded for reproducibility).
+        // Build Real Molecule draws from the real-molecule formulas; every other objective from shapes.
         private void BuildPlaylist(ChallengeDifficulty difficulty)
         {
-            _playlist.Clear();
-            _playlist.AddRange(ChallengeGenerator.GoalsForDifficulty(difficulty));
+            _realRound = Objective == LearningObjective.BuildRealMolecule;
             var rng = new Random(_seed);
-            for (int i = _playlist.Count - 1; i > 0; i--)
+
+            _playlist.Clear();
+            _realPlaylist.Clear();
+
+            if (_realRound)
+            {
+                _realPlaylist.AddRange(RealMoleculeSpec.ForDifficulty(difficulty));
+                Shuffle(_realPlaylist, rng);
+            }
+            else
+            {
+                _playlist.AddRange(ChallengeGenerator.GoalsForDifficulty(difficulty));
+                Shuffle(_playlist, rng);
+            }
+        }
+
+        private static void Shuffle<T>(List<T> list, Random rng)
+        {
+            for (int i = list.Count - 1; i > 0; i--)
             {
                 int j = rng.Next(i + 1);
-                (_playlist[i], _playlist[j]) = (_playlist[j], _playlist[i]);
+                (list[i], list[j]) = (list[j], list[i]);
             }
         }
 
@@ -108,7 +131,7 @@ namespace Molecule_Shapes.Game
             if (_generator == null) _generator = new ChallengeGenerator(_seed);
 
             // End of a finite round: report and stop (the HUD shows the summary / plays the celebration).
-            if (_posed >= _playlist.Count)
+            if (_posed >= RoundLength)
             {
                 RoundActive = false;
                 Current = null;
@@ -117,7 +140,9 @@ namespace Molecule_Shapes.Game
                 return;
             }
 
-            Current = _generator.ForGoal(Objective, _playlist[_posed], Difficulty);   // next scripted question
+            Current = _realRound
+                ? Challenge.CreateReal(_realPlaylist[_posed])                          // "Build CH4"
+                : _generator.ForGoal(Objective, _playlist[_posed], Difficulty);        // next shape
             _posed++;
 
             CurrentSolved = false;
@@ -147,7 +172,8 @@ namespace Molecule_Shapes.Game
                 LearningObjective.BuildMolecularGeometry => $"Hint: that shape is {Current.Goal.AxeFormula}.",
                 LearningObjective.BuildElectronGeometry => $"Hint: {Current.Goal.ElectronGeometryName} electron geometry means {Current.Goal.StericNumber} electron domains.",
                 LearningObjective.BuildFromAxe => $"Hint: {Current.Goal.AxeFormula} is {Current.Goal.GeometryName}.",
-                LearningObjective.BuildFromAngles => $"Hint: angles {Current.Goal.ApproxAngles} → {Current.Goal.GeometryName}.",
+                LearningObjective.BuildFromAngles => $"Hint: those angles mean {Current.Goal.StericNumber} electron domains ({Current.Goal.ElectronGeometryName}).",
+                LearningObjective.BuildRealMolecule => $"Hint: {Current.Goal.X} bonded atom(s) and {Current.Goal.E} lone pair(s) → {Current.Goal.GeometryName}.",
                 _ => $"Hint: it has {Current.Goal.X} bonded atom(s) and {Current.Goal.E} lone pair(s)."
             };
         }
@@ -178,7 +204,7 @@ namespace Molecule_Shapes.Game
         // shouldn't have to press Next just to see the summary.
         private void CompleteRoundIfFinished()
         {
-            if (!RoundActive || _posed < _playlist.Count) return;
+            if (!RoundActive || _posed < RoundLength) return;
             RoundActive = false;
             Current = null;
             Timer.Pause();

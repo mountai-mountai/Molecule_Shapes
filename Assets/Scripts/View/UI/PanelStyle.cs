@@ -45,6 +45,9 @@ namespace Molecule_Shapes.View
         public Color buttonNormal = new Color(0.20f, 0.25f, 0.32f, 1f);
         public Color buttonHover = new Color(0.30f, 0.40f, 0.55f, 1f);
         public Color buttonPressed = new Color(0.45f, 0.60f, 0.85f, 1f);
+        [Tooltip("Colour of a button that currently does nothing (e.g. Next/Hint outside a game). It " +
+                 "also stops responding to hover, so it reads as unavailable.")]
+        public Color buttonDisabled = new Color(0.12f, 0.14f, 0.17f, 1f);
         public Color buttonText = Color.white;
         [Tooltip("Optional custom button sprite (9-sliced). Leave empty to auto-generate a rounded rect.")]
         public Sprite buttonSprite;

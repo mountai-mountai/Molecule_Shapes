@@ -41,8 +41,15 @@ namespace Molecule_Shapes.Game
             }
         }
 
-        // Characteristic bond angle(s) for prompt display in BuildFromAngles / hints. Descriptive only.
-        public string ApproxAngles => CharacteristicAngles(Geometry.Kind);
+        // Characteristic bond angle(s) for prompt display in BuildFromAngles / hints.
+        //
+        // Keyed to the ELECTRON geometry (steric number), because that's what sets the angles - and it's
+        // what the model actually renders. Two consequences, both deliberate:
+        //   * the numbers quoted always match what the sim displays (no "104-118 degrees" prompt against
+        //     a molecule sitting at the ideal 109.5 - measured/real angles belong to Real Molecule mode);
+        //   * the description is unique per steric number, so a prompt can't describe two different
+        //     answers (e.g. seesaw and trigonal bipyramidal both show 90/120/180).
+        public string ApproxAngles => IdealAnglesForSteric(StericNumber);
 
         public override string ToString() => $"{AxeFormula} ({GeometryName})";
 
@@ -83,22 +90,15 @@ namespace Molecule_Shapes.Game
             return false;
         }
 
-        // Describes the characteristic bond angle(s) - including counts and mixed angle types where
-        // that's what makes the shape recognizable (e.g. "four 90° angles" for square planar, or
-        // "90° and 120° angles" for trigonal bipyramidal). Descriptive only; used for prompts/hints.
-        private static string CharacteristicAngles(MoleculeGeometryKind kind) => kind switch
+        // The ideal VSEPR angles for a steric number - exactly the values the model settles to, so a
+        // prompt never quotes a number the student can't reproduce on screen.
+        private static string IdealAnglesForSteric(int steric) => steric switch
         {
-            MoleculeGeometryKind.Linear => "a single 180° angle",
-            MoleculeGeometryKind.Bent => "one bent angle (≈104–118°)",
-            MoleculeGeometryKind.TrigonalPlanar => "three 120° angles",
-            MoleculeGeometryKind.TrigonalPyramidal => "three ≈107° angles",
-            MoleculeGeometryKind.TShaped => "≈90° angles in a T",
-            MoleculeGeometryKind.Tetrahedral => "109.5° angles",
-            MoleculeGeometryKind.Seesaw => "both 90° and 120° angles",
-            MoleculeGeometryKind.SquarePlanar => "four 90° angles",
-            MoleculeGeometryKind.TrigonalBipyramidal => "90°, 120°, and 180° angles",
-            MoleculeGeometryKind.SquarePyramidal => "90° angles in a square pyramid",
-            MoleculeGeometryKind.Octahedral => "all 90° angles",
+            2 => "a 180° angle",
+            3 => "120° angles",
+            4 => "109.5° angles",
+            5 => "90°, 120°, and 180° angles",
+            6 => "90° and 180° angles",
             _ => "—"
         };
     }

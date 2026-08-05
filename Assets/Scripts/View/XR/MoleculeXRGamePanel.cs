@@ -91,6 +91,7 @@ namespace Molecule_Shapes.View
 
         private Transform _col, _actionRow;
         private Text _objectiveText, _difficultyText, _promptText, _infoText, _feedbackText;
+        private Button _stopButton, _nextButton, _hintButton;
         private readonly List<GameObject> _answerButtons = new();
 
         private LearningObjective _selObjective;
@@ -242,8 +243,22 @@ namespace Molecule_Shapes.View
             RefreshInfoLine();
         }
 
+        // Stop / Next / Hint only mean something during an active round, so outside one they go dark and
+        // stop responding to hover rather than looking pressable and doing nothing.
+        private void RefreshButtonStates()
+        {
+            bool inGame = Session != null && Session.Mode == GameMode.Challenge;
+            bool inRound = inGame && Session.RoundActive && Session.Current != null;
+
+            if (_stopButton != null) _stopButton.interactable = inGame;
+            if (_nextButton != null) _nextButton.interactable = inRound;
+            // A hint is pointless once the question is already solved.
+            if (_hintButton != null) _hintButton.interactable = inRound && !Session.CurrentSolved;
+        }
+
         private void RefreshInfoLine()
         {
+            RefreshButtonStates();
             if (_infoText == null) return;
             if (Session == null || Session.Mode != GameMode.Challenge)
             {
@@ -356,7 +371,7 @@ namespace Molecule_Shapes.View
 
             Transform startRow = PanelUi.MakeRow(_col, startRowHeight, _style.buttonSpacing);
             PanelUi.MakeButton(startRow, _style, "Start", () => _game.StartChallenge(_selObjective, _selDifficulty));
-            PanelUi.MakeButton(startRow, _style, "Stop", () => _game.EnterSandbox());
+            _stopButton = PanelUi.MakeButton(startRow, _style, "Stop", () => _game.EnterSandbox());
 
             _promptText = PanelUi.MakeLabel(_col, _style, DefaultPrompt, _style.promptFontSize, FontStyle.Bold,
                                             TextAnchor.MiddleCenter, _style.textColor, promptHeight);
@@ -365,8 +380,8 @@ namespace Molecule_Shapes.View
             // action row, so the vertical layout always spaces them and they can never overlap New/Hint.
             _actionRow = PanelUi.MakeRow(_col, actionRowHeight, _style.buttonSpacing);
             // "Next" (not "New") - it advances within the round; "New" read like starting a new game.
-            PanelUi.MakeButton(_actionRow, _style, "Next", () => _game.NextChallenge());
-            PanelUi.MakeButton(_actionRow, _style, "Hint", () => SetFeedback(_game.UseHint(), _style.textColor));
+            _nextButton = PanelUi.MakeButton(_actionRow, _style, "Next", () => _game.NextChallenge());
+            _hintButton = PanelUi.MakeButton(_actionRow, _style, "Hint", () => SetFeedback(_game.UseHint(), _style.textColor));
 
             _feedbackText = PanelUi.MakeLabel(_col, _style, "", _style.bodyFontSize, FontStyle.Bold,
                                               TextAnchor.UpperCenter, _style.textColor, feedbackHeight);
@@ -478,14 +493,8 @@ namespace Molecule_Shapes.View
             o == LearningObjective.IdentifyAxe ||
             o == LearningObjective.IdentifyBoth;
 
-        // Objectives shown in the Mode selector. AXE modes require the advanced setting; Build Real
-        // Molecule is hidden until its real-molecule table lands (Phase 4).
-        private static bool IsVisible(LearningObjective o)
-        {
-            if (o == LearningObjective.BuildRealMolecule) return false;
-            if (IsAxe(o)) return AppSettings.Current.ShowAxeModes;
-            return true;
-        }
+        // Objectives shown in the Mode selector. AXE modes require the advanced setting.
+        private static bool IsVisible(LearningObjective o) => !IsAxe(o) || AppSettings.Current.ShowAxeModes;
 
         // Cycle to the next visible objective in the given direction.
         private static LearningObjective StepObjective(LearningObjective current, int dir)

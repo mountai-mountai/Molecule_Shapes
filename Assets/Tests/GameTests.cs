@@ -175,6 +175,73 @@ namespace Molecule_Shapes.Tests
         }
 
         [Test]
+        public void BuildFromAngles_AcceptsAnyShapeWithThoseAngles()
+        {
+            // Angles come from the ELECTRON geometry, so "90/120/180" (steric 5) is satisfied by
+            // trigonal bipyramidal AND seesaw AND T-shaped - all genuinely show those angles.
+            Challenge c = Challenge.Create(LearningObjective.BuildFromAngles, new MoleculeGoal(5, 0));
+
+            Assert.IsTrue(c.IsSatisfiedBy(BuildMolecule(5, 0)), "trigonal bipyramidal");
+            Assert.IsTrue(c.IsSatisfiedBy(BuildMolecule(4, 1)), "seesaw shares those angles");
+            Assert.IsTrue(c.IsSatisfiedBy(BuildMolecule(3, 2)), "T-shaped shares those angles");
+            Assert.IsFalse(c.IsSatisfiedBy(BuildMolecule(4, 0)), "steric 4 is 109.5, not 90/120/180");
+        }
+
+        [Test]
+        public void AnglePrompts_AreUniquePerStericNumber()
+        {
+            // A prompt must never describe two different electron geometries.
+            var byDescription = new Dictionary<string, int>();
+            foreach (MoleculeGoal g in MoleculeGoal.ValidConfigurations)
+            {
+                if (byDescription.TryGetValue(g.ApproxAngles, out int steric))
+                    Assert.AreEqual(steric, g.StericNumber, $"'{g.ApproxAngles}' describes two steric numbers");
+                else
+                    byDescription[g.ApproxAngles] = g.StericNumber;
+            }
+        }
+
+        // --- Real molecules -------------------------------------------------------------------------
+
+        [Test]
+        public void RealMolecules_ResolveToTheExpectedShapes()
+        {
+            AssertShape("CH4", MoleculeGeometryKind.Tetrahedral);
+            AssertShape("H2O", MoleculeGeometryKind.Bent);
+            AssertShape("BH3", MoleculeGeometryKind.TrigonalPlanar);
+            AssertShape("NH3", MoleculeGeometryKind.TrigonalPyramidal);
+            AssertShape("CO2", MoleculeGeometryKind.Linear);
+            AssertShape("SF6", MoleculeGeometryKind.Octahedral);
+            AssertShape("XeF4", MoleculeGeometryKind.SquarePlanar);
+            AssertShape("ClF3", MoleculeGeometryKind.TShaped);
+            AssertShape("SF4", MoleculeGeometryKind.Seesaw);
+            AssertShape("BrF5", MoleculeGeometryKind.SquarePyramidal);
+        }
+
+        private static void AssertShape(string formula, MoleculeGeometryKind expected)
+        {
+            RealMoleculeSpec spec = null;
+            foreach (RealMoleculeSpec m in RealMoleculeSpec.All)
+                if (m.Formula == formula) spec = m;
+
+            Assert.IsNotNull(spec, $"{formula} missing from the real-molecule table");
+            Assert.AreEqual(expected, spec.Goal.Geometry.Kind, $"{formula} resolved to the wrong shape");
+        }
+
+        [Test]
+        public void RealMoleculeChallenge_PromptsWithFormulaAndNeedsExactCounts()
+        {
+            RealMoleculeSpec water = null;
+            foreach (RealMoleculeSpec m in RealMoleculeSpec.All) if (m.Formula == "H2O") water = m;
+            Challenge c = Challenge.CreateReal(water);
+
+            StringAssert.Contains("H2O", c.Prompt);
+            StringAssert.DoesNotContain("AX", c.Prompt);                  // formula only, never AXE
+            Assert.IsTrue(c.IsSatisfiedBy(BuildMolecule(2, 2)), "H2O is 2 bonded + 2 lone pairs");
+            Assert.IsFalse(c.IsSatisfiedBy(BuildMolecule(2, 1)), "SO2's counts must not satisfy H2O");
+        }
+
+        [Test]
         public void DifficultyPools_AreCumulative()
         {
             List<MoleculeGoal> easy = ChallengeGenerator.GoalsForDifficulty(ChallengeDifficulty.Easy);
