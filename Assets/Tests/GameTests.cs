@@ -151,7 +151,7 @@ namespace Molecule_Shapes.Tests
         {
             var session = new GameSession();
             bool completed = false;
-            session.RoundCompleted += () => completed = true;
+            session.RoundCompleted += (_, __) => completed = true;
             session.StartChallengeRun(LearningObjective.BuildMolecularGeometry, ChallengeDifficulty.Easy,
                                       ScoreRules.Basic(), seed: 3);
 
@@ -172,6 +172,24 @@ namespace Molecule_Shapes.Tests
             Assert.IsTrue(completed, "round completes after the last question");
             Assert.AreEqual(5, session.CorrectThisRound);
             Assert.AreEqual(5, seen.Count, "each of the five shapes appears exactly once");
+        }
+
+        [Test]
+        public void SkippingEveryQuestion_ReportsZeroCorrect()
+        {
+            // Pressing Next through a whole round must not look like a win: the round still completes,
+            // but it reports 0 correct so the celebration listeners stay quiet.
+            var session = new GameSession();
+            int reportedCorrect = -1, reportedTotal = -1;
+            session.RoundCompleted += (c, t) => { reportedCorrect = c; reportedTotal = t; };
+            session.StartChallengeRun(LearningObjective.BuildMolecularGeometry, ChallengeDifficulty.Easy,
+                                      ScoreRules.Basic(), seed: 5);
+
+            for (int q = 0; q < session.RoundLength + 1; q++) session.NextChallenge();
+
+            Assert.AreEqual(0, reportedCorrect, "nothing was solved, so nothing is correct");
+            Assert.AreEqual(5, reportedTotal);
+            Assert.AreEqual(0, session.Score.Total, "skipping should not score");
         }
 
         [Test]

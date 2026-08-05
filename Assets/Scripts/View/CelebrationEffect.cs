@@ -27,6 +27,11 @@ namespace Molecule_Shapes.View
         [Tooltip("Metres above the camera's eye line (burst falls through view).")]
         [SerializeField] private float heightOffset = 0.35f;
 
+        [Header("When to celebrate")]
+        [Tooltip("Fraction of the round that must be answered correctly before the confetti plays. " +
+                 "Stops skipping through with Next from looking like a win.")]
+        [Range(0f, 1f)] [SerializeField] private float celebrateAtFraction = 0.6f;
+
         [Header("Built-in burst")]
         [SerializeField] private int particleCount = 90;
         [SerializeField] private float particleSize = 0.018f;
@@ -49,15 +54,22 @@ namespace Molecule_Shapes.View
         private void OnDisable()
         {
             if (!_subscribed || Session == null) return;
-            Session.RoundCompleted -= Play;
+            Session.RoundCompleted -= OnRoundCompleted;
             _subscribed = false;
         }
 
         private void TrySubscribe()
         {
             if (_subscribed || Session == null) return;
-            Session.RoundCompleted += Play;
+            Session.RoundCompleted += OnRoundCompleted;
             _subscribed = true;
+        }
+
+        // Only celebrate a round that was actually earned.
+        private void OnRoundCompleted(int correct, int total)
+        {
+            if (total <= 0) return;
+            if (correct / (float)total >= celebrateAtFraction) Play();
         }
 
         [ContextMenu("Play Celebration")]
@@ -127,7 +139,7 @@ namespace Molecule_Shapes.View
             fade.color = new ParticleSystem.MinMaxGradient(gradient);
 
             var psRenderer = go.GetComponent<ParticleSystemRenderer>();
-            psRenderer.material = PanelUi.TransparentMaterial(Color.white);
+            psRenderer.material = PanelUi.ParticleMaterial();   // vertex-coloured, so colorA/colorB show
             psRenderer.renderMode = ParticleSystemRenderMode.Billboard;
         }
     }

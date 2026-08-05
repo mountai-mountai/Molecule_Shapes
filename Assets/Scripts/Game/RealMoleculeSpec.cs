@@ -25,13 +25,28 @@ namespace Molecule_Shapes.Game
         public readonly int E;             // lone pairs on the central atom
         public readonly ChallengeDifficulty Tier;
 
-        public RealMoleculeSpec(string formula, string name, int x, int e, ChallengeDifficulty tier)
+        /// <summary>Measured bond angle(s), e.g. "104.5°". The VSEPR model's ideal is Goal.ApproxAngles;
+        /// comparing the two is the point of Real Molecule mode.</summary>
+        public readonly string RealAngles;
+
+        public RealMoleculeSpec(string formula, string name, int x, int e, ChallengeDifficulty tier,
+                                string realAngles)
         {
-            Formula = formula; Name = name; X = x; E = e; Tier = tier;
+            Formula = formula; Name = name; X = x; E = e; Tier = tier; RealAngles = realAngles;
         }
 
         public MoleculeGoal Goal => new MoleculeGoal(X, E);
         public string GeometryName => Goal.GeometryName;
+
+        /// <summary>The model's ideal angle(s) for this molecule's electron geometry.</summary>
+        public string IdealAngles => Goal.ApproxAngles;
+
+        /// <summary>Why the measured angle departs from the ideal - the pedagogical payoff of the
+        /// Model/Real comparison (lone pairs repel more strongly than bonding pairs).</summary>
+        public string WhyDiffers => E > 0
+            ? "Lone pairs repel more strongly than bonding pairs, squeezing the bond angle below the ideal."
+            : "No lone pairs, so the measured angle matches the ideal.";
+
         public override string ToString() => $"{Formula} ({Name})";
 
         /// <summary>When true a difficulty includes every easier tier's molecules as well.</summary>
@@ -40,23 +55,23 @@ namespace Molecule_Shapes.Game
         public static readonly IReadOnlyList<RealMoleculeSpec> All = new List<RealMoleculeSpec>
         {
             // Easy - TEKS on-level
-            new("CH4", "Methane",           4, 0, ChallengeDifficulty.Easy),   // tetrahedral
-            new("H2O", "Water",             2, 2, ChallengeDifficulty.Easy),   // bent
-            new("BH3", "Borane",            3, 0, ChallengeDifficulty.Easy),   // trigonal planar
-            new("NH3", "Ammonia",           3, 1, ChallengeDifficulty.Easy),   // trigonal pyramidal
-            new("CO2", "Carbon dioxide",    2, 0, ChallengeDifficulty.Easy),   // linear (two double bonds)
+            new("CH4", "Methane",        4, 0, ChallengeDifficulty.Easy, "109.5°"),  // tetrahedral
+            new("H2O", "Water",          2, 2, ChallengeDifficulty.Easy, "104.5°"),  // bent
+            new("BH3", "Borane",         3, 0, ChallengeDifficulty.Easy, "120°"),    // trigonal planar
+            new("NH3", "Ammonia",        3, 1, ChallengeDifficulty.Easy, "107°"),    // trigonal pyramidal
+            new("CO2", "Carbon dioxide", 2, 0, ChallengeDifficulty.Easy, "180°"),    // linear (two double bonds)
 
             // Medium - advanced / AP
-            new("SF6",  "Sulfur hexafluoride",   6, 0, ChallengeDifficulty.Medium), // octahedral
-            new("AsF5", "Arsenic pentafluoride", 5, 0, ChallengeDifficulty.Medium), // trigonal bipyramidal
-            new("XeF4", "Xenon tetrafluoride",   4, 2, ChallengeDifficulty.Medium), // square planar
-            new("PCl5", "Phosphorus pentachloride", 5, 0, ChallengeDifficulty.Medium), // trigonal bipyramidal
+            new("SF6",  "Sulfur hexafluoride",      6, 0, ChallengeDifficulty.Medium, "90°"),
+            new("AsF5", "Arsenic pentafluoride",    5, 0, ChallengeDifficulty.Medium, "90° and 120°"),
+            new("XeF4", "Xenon tetrafluoride",      4, 2, ChallengeDifficulty.Medium, "90°"),
+            new("PCl5", "Phosphorus pentachloride", 5, 0, ChallengeDifficulty.Medium, "90° and 120°"),
 
             // Hard - octet-expanding / lone-pair-rich
-            new("SO2",  "Sulfur dioxide",        2, 1, ChallengeDifficulty.Hard),   // bent
-            new("ClF3", "Chlorine trifluoride",  3, 2, ChallengeDifficulty.Hard),   // T-shaped
-            new("SF4",  "Sulfur tetrafluoride",  4, 1, ChallengeDifficulty.Hard),   // seesaw
-            new("BrF5", "Bromine pentafluoride", 5, 1, ChallengeDifficulty.Hard)    // square pyramidal
+            new("SO2",  "Sulfur dioxide",        2, 1, ChallengeDifficulty.Hard, "119°"),
+            new("ClF3", "Chlorine trifluoride",  3, 2, ChallengeDifficulty.Hard, "87.5°"),
+            new("SF4",  "Sulfur tetrafluoride",  4, 1, ChallengeDifficulty.Hard, "102° and 173°"),
+            new("BrF5", "Bromine pentafluoride", 5, 1, ChallengeDifficulty.Hard, "84.8°")
         };
 
         /// <summary>The molecules eligible at a difficulty (cumulative by default).</summary>

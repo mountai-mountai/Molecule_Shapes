@@ -293,6 +293,41 @@ namespace Molecule_Shapes.View
             return mat;
         }
 
+        // Material for particle systems. MUST be a *Particles* shader: the plain URP/Unlit shader ignores
+        // vertex colours, and a ParticleSystem passes each particle's start colour as a vertex colour -
+        // so with Unlit every particle renders white regardless of the gradient you set.
+        // Keep "Universal Render Pipeline/Particles/Unlit" in device builds by putting a material that
+        // uses it in a Resources folder (same trick as KeepUrpLit / KeepUrpUnlit).
+        public static Material ParticleMaterial()
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Particles/Simple Lit");
+            if (shader == null) shader = Shader.Find("Sprites/Default");        // built-in, also vertex-coloured
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");   // last resort (white)
+
+            var mat = new Material(shader);
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
+            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
+            if (mat.HasProperty("_AlphaClip")) mat.SetFloat("_AlphaClip", 0f);
+            if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_SrcBlendAlpha")) mat.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            if (mat.HasProperty("_DstBlendAlpha")) mat.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
+            if (mat.HasProperty("_QueueControl")) mat.SetFloat("_QueueControl", 1f);
+
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.EnableKeyword("_ALPHABLEND_ON");
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+            // White base so the per-particle colour comes through unmodulated.
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", Color.white);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", Color.white);
+            return mat;
+        }
+
         // Adds a grab bar across the top of a panel. It's a thin box (with the primitive's BoxCollider,
         // which PanelGrabController raycasts against) parented to the panel root, plus a PanelHandle
         // marker pointing back at that root. Returns the handle GameObject.

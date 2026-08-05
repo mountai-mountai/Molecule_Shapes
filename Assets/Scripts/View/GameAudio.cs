@@ -33,6 +33,11 @@ namespace Molecule_Shapes.View
         [Tooltip("Base playback volume, further scaled by the Master Volume setting.")]
         [Range(0f, 1f)] [SerializeField] private float volume = 0.8f;
 
+        [Header("Celebration")]
+        [Tooltip("Fraction of a round that must be answered correctly for the celebration to play. " +
+                 "Stops skipping through with Next from sounding like a win.")]
+        [Range(0f, 1f)] [SerializeField] private float celebrateAtFraction = 0.6f;
+
         private GameSessionController _controller;
         private AudioSource _source;
         private bool _subscribed;
@@ -137,7 +142,13 @@ namespace Molecule_Shapes.View
         private void OnSolved(Challenge c, ScoreBreakdown b) => PlayIndex(SoundCategory.Correct);
         private void OnAnswerJudged(Challenge c, bool correct) { if (!correct) PlayIndex(SoundCategory.Incorrect); }
         private void OnTimedOut(Challenge c) => PlayIndex(SoundCategory.Incorrect);
-        private void OnRoundCompleted() => PlayIndex(SoundCategory.Celebration);
+
+        // Only celebrate a round that was actually earned.
+        private void OnRoundCompleted(int correct, int total)
+        {
+            if (total <= 0) return;
+            if (correct / (float)total >= celebrateAtFraction) PlayIndex(SoundCategory.Celebration);
+        }
 
         private void PlayIndex(SoundCategory category, bool force = false)
         {

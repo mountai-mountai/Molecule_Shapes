@@ -45,7 +45,9 @@ namespace Molecule_Shapes.Game
         public event Action<Challenge, ScoreBreakdown> ChallengeSolved;
         public event Action<Challenge, bool> AnswerJudged;     // Identify: (challenge, wasCorrect)
         public event Action<Challenge> ChallengeTimedOut;
-        public event Action RoundCompleted;                    // the last question of a round finished
+        // (correct, total) for the finished round, so listeners can tell a clean run from a skipped one -
+        // pressing Next through every question must not trigger a celebration.
+        public event Action<int, int> RoundCompleted;
         public event Action StateChanged;                      // mode/objective/difficulty changed
 
         // --- Configuration --------------------------------------------------------------------------
@@ -133,10 +135,11 @@ namespace Molecule_Shapes.Game
             // End of a finite round: report and stop (the HUD shows the summary / plays the celebration).
             if (_posed >= RoundLength)
             {
+                int total = RoundLength;
                 RoundActive = false;
                 Current = null;
                 Timer.Pause();
-                RoundCompleted?.Invoke();
+                RoundCompleted?.Invoke(CorrectThisRound, total);
                 return;
             }
 
@@ -205,10 +208,11 @@ namespace Molecule_Shapes.Game
         private void CompleteRoundIfFinished()
         {
             if (!RoundActive || _posed < RoundLength) return;
+            int total = RoundLength;
             RoundActive = false;
             Current = null;
             Timer.Pause();
-            RoundCompleted?.Invoke();
+            RoundCompleted?.Invoke(CorrectThisRound, total);
         }
 
         // Identify answer submission.

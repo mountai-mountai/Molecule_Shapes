@@ -216,15 +216,22 @@ namespace Molecule_Shapes.View
         private void OnChallengeTimedOut(Challenge c) =>
             SetFeedback($"Time's up - it was {c.Goal.GeometryName}.", _style.badColor);
 
-        // End of a finite round: show the score summary (the GameAudio component plays the celebration).
-        private void OnRoundCompleted()
+        // End of a finite round: show the score summary. The tally is coloured by how it actually went,
+        // so skipping through with Next doesn't read as a win (GameAudio/CelebrationEffect gate their
+        // celebration on the same result).
+        private void OnRoundCompleted(int correct, int total)
         {
             ClearAnswers();
-            if (_promptText != null) _promptText.text = "Round complete!";
-            int correct = Session != null ? Session.CorrectThisRound : 0;
-            int total = Session != null ? Session.RoundLength : 0;
+
+            float fraction = total > 0 ? correct / (float)total : 0f;
+            bool didWell = fraction >= 0.6f;
+
+            if (_promptText != null)
+                _promptText.text = correct == 0 ? "Round over" : "Round complete!";
+
             int score = Session != null ? Session.Score.Total : 0;
-            SetFeedback($"<color={Hex(_style.goodColor)}>You got {correct}/{total}</color>\nScore {score}",
+            string tallyColor = Hex(didWell ? _style.goodColor : _style.badColor);
+            SetFeedback($"<color={tallyColor}>You got {correct}/{total}</color>\nScore {score}",
                         _style.textColor);
         }
 
