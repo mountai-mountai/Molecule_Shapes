@@ -80,7 +80,7 @@ namespace Molecule_Shapes.Game
         {
             var result = new List<MoleculeGoal>(EasyTier);
             if (difficulty != ChallengeDifficulty.Easy) result.AddRange(MediumTier);
-            if (difficulty is ChallengeDifficulty.Hard or ChallengeDifficulty.Mixed) result.AddRange(HardTier);
+            if (difficulty == ChallengeDifficulty.Hard) result.AddRange(HardTier);
             return result;
         }
 

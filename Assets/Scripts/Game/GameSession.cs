@@ -170,7 +170,19 @@ namespace Molecule_Shapes.Game
                 CurrentSolved = true;          // lock it; player advances with NextChallenge
                 Score.BreakStreak();
                 ChallengeTimedOut?.Invoke(Current);
+                CompleteRoundIfFinished();
             }
+        }
+
+        // After the LAST question of a round resolves, finish the round automatically - the player
+        // shouldn't have to press Next just to see the summary.
+        private void CompleteRoundIfFinished()
+        {
+            if (!RoundActive || _posed < _playlist.Count) return;
+            RoundActive = false;
+            Current = null;
+            Timer.Pause();
+            RoundCompleted?.Invoke();
         }
 
         // Identify answer submission.
@@ -202,6 +214,7 @@ namespace Molecule_Shapes.Game
                 Current.MinimumEdits, HintsThisChallenge, accuracy01);
             Timer.Pause();
             ChallengeSolved?.Invoke(Current, b);
+            CompleteRoundIfFinished();          // last question solved -> round ends on its own
         }
 
         // Maps the molecule's settling error to a 0..1 accuracy (1 = perfectly settled). Tunable.

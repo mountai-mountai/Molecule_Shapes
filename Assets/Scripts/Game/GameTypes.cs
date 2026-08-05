@@ -51,12 +51,13 @@ namespace Molecule_Shapes.Game
                             // arrangement of bonds/lone pairs summing to it counts
     }
 
-    // Difficulty tier - selects which goal configurations are eligible and the default ScoreRules preset.
+    // Difficulty tier - selects which shapes are eligible and the default ScoreRules preset. Cumulative
+    // and TEKS-aligned: Easy = the five on-level shapes, Medium adds the advanced/AP pair, Hard adds the
+    // octet-expanding rest (so Hard already covers everything - there's no separate "mixed" tier).
     public enum ChallengeDifficulty
     {
-        Easy,       // no lone pairs, low steric number (Linear, Trigonal Planar, Tetrahedral)
-        Medium,     // higher steric number or a single lone pair (Trig. Bipyramidal, Octahedral, Seesaw...)
-        Hard,       // lone-pair-rich shapes (Bent, T-shaped, Square Planar, Square Pyramidal)
-        Mixed       // draws from all tiers
+        Easy,       // bent, linear, trigonal planar, trigonal pyramidal, tetrahedral (TEKS on-level)
+        Medium,     // + trigonal bipyramidal, octahedral (advanced / AP)
+        Hard        // + T-shaped, seesaw, square planar, square pyramidal (all shapes)
     }
 }

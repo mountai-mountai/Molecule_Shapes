@@ -60,23 +60,26 @@ namespace Molecule_Shapes.View
         [Tooltip("Width of the value label between the arrows. The ◀ value ▶ cluster is centered, so a " +
                  "smaller value here tightens the spacing around Mode/Level.")]
         [SerializeField] private float selectorValueWidth = 190f;
+        [Tooltip("Smallest font the selector value may shrink to so long mode names (e.g. 'Identify " +
+                 "Molecular Geometry') fit inside their box instead of overlapping the ◀ ▶ arrows.")]
+        [SerializeField] private int selectorMinFontSize = 11;
         [Tooltip("Height of the Start / Stop button row (those buttons match this height).")]
         [SerializeField] private float startRowHeight = 52f;
         [Tooltip("Height of the challenge prompt text area.")]
         [SerializeField] private float promptHeight = 64f;
         [Tooltip("Height of EACH multiple-choice answer button (Identify modes).")]
         [SerializeField] private float answerButtonHeight = 46f;
-        [Tooltip("Height of the New / Hint button row.")]
+        [Tooltip("Height of the Next / Hint button row.")]
         [SerializeField] private float actionRowHeight = 50f;
         [Tooltip("Height of the feedback text area (raise it if the score breakdown wraps).")]
         [SerializeField] private float feedbackHeight = 76f;
 
         [Header("Content")]
         [Tooltip("Show the Level (difficulty) selector. Off = always use Default Difficulty (pools are " +
-                 "cumulative, so Mixed/Hard already include every shape).")]
+                 "cumulative, so Hard already includes every shape).")]
         [SerializeField] private bool showDifficultySelector = true;
         [SerializeField] private LearningObjective defaultObjective = LearningObjective.BuildMolecularGeometry;
-        [SerializeField] private ChallengeDifficulty defaultDifficulty = ChallengeDifficulty.Mixed;
+        [SerializeField] private ChallengeDifficulty defaultDifficulty = ChallengeDifficulty.Hard;
         [Tooltip("Put each score-breakdown item on its own line under the result.")]
         [SerializeField] private bool multilineBreakdown = true;
 
@@ -361,7 +364,8 @@ namespace Molecule_Shapes.View
             // Answer buttons are inserted here (direct children of the column) between the prompt and the
             // action row, so the vertical layout always spaces them and they can never overlap New/Hint.
             _actionRow = PanelUi.MakeRow(_col, actionRowHeight, _style.buttonSpacing);
-            PanelUi.MakeButton(_actionRow, _style, "New", () => _game.NextChallenge());
+            // "Next" (not "New") - it advances within the round; "New" read like starting a new game.
+            PanelUi.MakeButton(_actionRow, _style, "Next", () => _game.NextChallenge());
             PanelUi.MakeButton(_actionRow, _style, "Hint", () => SetFeedback(_game.UseHint(), _style.textColor));
 
             _feedbackText = PanelUi.MakeLabel(_col, _style, "", _style.bodyFontSize, FontStyle.Bold,
@@ -410,15 +414,27 @@ namespace Molecule_Shapes.View
         }
 
         // "◀ value ▶" stepper. The row centers a fixed-width value between the arrows, so the cluster
-        // stays tight instead of the value stretching the full panel width. Value doesn't wrap.
+        // stays tight instead of the value stretching the full panel width.
+        //
+        // Long names ("Identify Molecular Geometry") must stay INSIDE that fixed width - previously they
+        // overflowed horizontally and drew on top of the arrows. So the value wraps and best-fits: it
+        // uses up to two lines and shrinks the font (down to selectorMinFontSize) until it fits its box.
         private Text CreateSelectorRow(Action onPrev, Action onNext)
         {
             Transform row = PanelUi.MakeRow(_col, selectorHeight, _style.buttonSpacing, forceExpandWidth: false);
             PanelUi.MakeButton(row, _style, "◀", onPrev, fixedWidth: selectorArrowWidth);
+
             Text label = PanelUi.MakeLabel(row, _style, "", _style.valueFontSize, FontStyle.Bold,
-                                           TextAnchor.MiddleCenter, _style.textColor, 0f, wrap: false);
+                                           TextAnchor.MiddleCenter, _style.textColor, 0f, wrap: true);
+            label.verticalOverflow = VerticalWrapMode.Truncate;   // best-fit shrinks instead of spilling
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = Mathf.Max(1, selectorMinFontSize);
+            label.resizeTextMaxSize = _style.valueFontSize;
+
             LayoutElement le = label.GetComponent<LayoutElement>();
-            le.minWidth = selectorValueWidth; le.preferredWidth = selectorValueWidth;
+            le.minWidth = le.preferredWidth = selectorValueWidth;
+            le.flexibleWidth = 0f;                                // never stretch past the reserved width
+
             PanelUi.MakeButton(row, _style, "▶", onNext, fixedWidth: selectorArrowWidth);
             return label;
         }

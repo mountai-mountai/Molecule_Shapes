@@ -17,7 +17,9 @@ namespace Molecule_Shapes.Game
             s.ShowAxeModes           = GetBool("showAxe", s.ShowAxeModes);
             s.AllowTerminalLonePairs = GetBool("terminalLP", s.AllowTerminalLonePairs);
             s.SoundEnabled           = GetBool("sound", s.SoundEnabled);
-            s.CelebrationSound       = GetBool("celebration", s.CelebrationSound);
+            s.CorrectSoundIndex      = PlayerPrefs.GetInt(Prefix + "sndCorrect", s.CorrectSoundIndex);
+            s.IncorrectSoundIndex    = PlayerPrefs.GetInt(Prefix + "sndIncorrect", s.IncorrectSoundIndex);
+            s.CelebrationSoundIndex  = PlayerPrefs.GetInt(Prefix + "sndCelebration", s.CelebrationSoundIndex);
             s.MasterVolume           = PlayerPrefs.GetFloat(Prefix + "volume", s.MasterVolume);
             s.LosingPhraseIndex      = PlayerPrefs.GetInt(Prefix + "losePhrase", s.LosingPhraseIndex);
             return s;
@@ -29,7 +31,9 @@ namespace Molecule_Shapes.Game
             SetBool("showAxe", s.ShowAxeModes);
             SetBool("terminalLP", s.AllowTerminalLonePairs);
             SetBool("sound", s.SoundEnabled);
-            SetBool("celebration", s.CelebrationSound);
+            PlayerPrefs.SetInt(Prefix + "sndCorrect", s.CorrectSoundIndex);
+            PlayerPrefs.SetInt(Prefix + "sndIncorrect", s.IncorrectSoundIndex);
+            PlayerPrefs.SetInt(Prefix + "sndCelebration", s.CelebrationSoundIndex);
             PlayerPrefs.SetFloat(Prefix + "volume", s.MasterVolume);
             PlayerPrefs.SetInt(Prefix + "losePhrase", s.LosingPhraseIndex);
             PlayerPrefs.Save();

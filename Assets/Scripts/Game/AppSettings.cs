@@ -20,13 +20,38 @@ namespace Molecule_Shapes.Game
         public bool AllowTerminalLonePairs = false;   // let lone pairs be added to terminal atoms
         public bool SoundEnabled = true;              // correct/incorrect game audio
 
-        // --- Forward-declared (kept so PlayerPrefs schema doesn't churn) ---
-        public bool CelebrationSound = true;
+        // Which sound is used per category. 0 = None (silent); 1+ index into the options GameAudio
+        // publishes (its custom Inspector clips first, then the built-in defaults).
+        public int CorrectSoundIndex = 1;
+        public int IncorrectSoundIndex = 1;
+        public int CelebrationSoundIndex = 1;
+
         public float MasterVolume = 1f;
         public int LosingPhraseIndex = 0;             // index into LosingPhrases
 
         /// <summary>Selectable "try again" style phrases (replaces "Wrong").</summary>
-        public static readonly string[] LosingPhrases = { "Try Again", "Almost!", "Not quite" };
+        public static readonly string[] LosingPhrases =
+            { "Try Again", "Almost!", "Not quite", "Give it another go", "Close - rethink it" };
+
+        /// <summary>The three categories of game sound the player can choose independently.</summary>
+        public enum SoundCategory { Correct, Incorrect, Celebration }
+
+        public int GetSoundIndex(SoundCategory c) => c switch
+        {
+            SoundCategory.Correct => CorrectSoundIndex,
+            SoundCategory.Incorrect => IncorrectSoundIndex,
+            _ => CelebrationSoundIndex
+        };
+
+        public void SetSoundIndex(SoundCategory c, int value)
+        {
+            switch (c)
+            {
+                case SoundCategory.Correct: CorrectSoundIndex = value; break;
+                case SoundCategory.Incorrect: IncorrectSoundIndex = value; break;
+                default: CelebrationSoundIndex = value; break;
+            }
+        }
 
         public string LosingPhrase
         {

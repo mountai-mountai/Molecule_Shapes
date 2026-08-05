@@ -70,6 +70,15 @@ namespace Molecule_Shapes.View
             if (height > 0f) { le.minHeight = height; le.preferredHeight = height; }
             if (fixedWidth > 0f) { le.minWidth = fixedWidth; le.preferredWidth = fixedWidth; }
 
+            // Grow + outline on hover so the pointed-at control is legible from across the room.
+            if (s.hoverFeedback)
+            {
+                HoverScale hover = go.AddComponent<HoverScale>();
+                hover.HoverScaleFactor = s.hoverScale;
+                hover.OutlineColor = s.hoverOutline;
+                hover.OutlineWidth = s.hoverOutlineWidth;
+            }
+
             var textGO = new GameObject("Text", typeof(RectTransform));
             textGO.transform.SetParent(go.transform, false);
             RectTransform tr = textGO.GetComponent<RectTransform>();
@@ -142,6 +151,30 @@ namespace Molecule_Shapes.View
             toggle.SetIsOnWithoutNotify(initial);                 // don't fire during construction
             if (onChanged != null) toggle.onValueChanged.AddListener(v => onChanged(v));
             return toggle;
+        }
+
+        // A "◀ value ▶" stepper row. The value keeps a fixed width and best-fits (wrapping + shrinking to
+        // minFontSize) so long labels stay inside their box instead of drawing over the arrows.
+        // Returns the value Text so the caller can update it.
+        public static Text MakeSelectorRow(Transform parent, PanelStyle s, float height, float arrowWidth,
+                                           float valueWidth, int minFontSize, Action onPrev, Action onNext)
+        {
+            Transform row = MakeRow(parent, height, s.buttonSpacing, forceExpandWidth: false);
+            MakeButton(row, s, "◀", onPrev, fixedWidth: arrowWidth);
+
+            Text label = MakeLabel(row, s, "", s.valueFontSize, FontStyle.Bold, TextAnchor.MiddleCenter,
+                                   s.textColor, 0f, wrap: true);
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = Mathf.Max(1, minFontSize);
+            label.resizeTextMaxSize = s.valueFontSize;
+
+            LayoutElement le = label.GetComponent<LayoutElement>();
+            le.minWidth = le.preferredWidth = valueWidth;
+            le.flexibleWidth = 0f;
+
+            MakeButton(row, s, "▶", onNext, fixedWidth: arrowWidth);
+            return label;
         }
 
         // A vertical layout column. If fillParent it stretches to the parent (inset by padding); else it
@@ -222,6 +255,39 @@ namespace Molecule_Shapes.View
             if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
             var mat = new Material(shader);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+            return mat;
+        }
+
+        // An alpha-blended material from a URP shader, for particles / translucent 3D bits. Alpha blend
+        // is set on the colour channel only (One/One on alpha) so it never punches a hole in the
+        // framebuffer alpha - otherwise passthrough would bleed through it against a solid VR background.
+        public static Material TransparentMaterial(Color color)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+            var mat = new Material(shader);
+
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
+            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
+            if (mat.HasProperty("_AlphaClip")) mat.SetFloat("_AlphaClip", 0f);
+            if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_SrcBlendAlpha")) mat.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            if (mat.HasProperty("_DstBlendAlpha")) mat.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
+            if (mat.HasProperty("_QueueControl")) mat.SetFloat("_QueueControl", 1f);
+            if (mat.HasProperty("_Mode")) mat.SetFloat("_Mode", 3f);
+
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.DisableKeyword("_SURFACE_TYPE_OPAQUE");
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.EnableKeyword("_ALPHABLEND_ON");
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
             if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
             return mat;

@@ -15,6 +15,7 @@
 //   leftController / rightController  -> LeftHand / RightHand Controller transforms
 //   leftGripAction / rightGripAction  -> XRI LeftHand Interaction/Select, XRI RightHand Interaction/Select
 
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Molecule_Shapes.Game;
@@ -38,6 +39,10 @@ namespace Molecule_Shapes.View
 
         private readonly HandState _left = new();
         private readonly HandState _right = new();
+
+        // Handles highlighted this frame, so one released last frame gets cleared exactly once.
+        private readonly HashSet<PanelHandle> _hoveredNow = new();
+        private readonly HashSet<PanelHandle> _hoveredLast = new();
 
         private class HandState
         {
@@ -68,6 +73,41 @@ namespace Molecule_Shapes.View
         {
             UpdateHand(leftController, leftGripAction, _left);
             UpdateHand(rightController, rightGripAction, _right);
+            UpdateHoverHighlight();
+        }
+
+        // Highlights whichever handle each controller is pointing at (and a held one), so it's obvious
+        // what you're about to grab. Cheap: two raycasts per frame.
+        private void UpdateHoverHighlight()
+        {
+            _hoveredNow.Clear();
+            AddHovered(leftController, _left);
+            AddHovered(rightController, _right);
+
+            foreach (PanelHandle h in _hoveredNow)
+                if (h != null) h.SetHovered(true);
+
+            foreach (PanelHandle h in _hoveredLast)
+                if (h != null && !_hoveredNow.Contains(h)) h.SetHovered(false);
+
+            _hoveredLast.Clear();
+            foreach (PanelHandle h in _hoveredNow) _hoveredLast.Add(h);
+        }
+
+        private void AddHovered(Transform controller, HandState state)
+        {
+            if (controller == null) return;
+
+            // Keep the held panel's handle lit even if the ray drifts off it mid-move.
+            if (state.Grabbed != null)
+            {
+                PanelHandle held = state.Grabbed.GetComponentInChildren<PanelHandle>();
+                if (held != null) _hoveredNow.Add(held);
+                return;
+            }
+
+            PanelHandle hit = FindHandle(controller);
+            if (hit != null) _hoveredNow.Add(hit);
         }
 
         private void UpdateHand(Transform controller, InputActionReference gripRef, HandState state)
@@ -92,7 +132,8 @@ namespace Molecule_Shapes.View
             }
         }
 
-        private void TryGrab(Transform controller, HandState state)
+        // Nearest panel handle under this controller's ray, or null.
+        private PanelHandle FindHandle(Transform controller)
         {
             RaycastHit[] hits = Physics.RaycastAll(controller.position, controller.forward, maxRayDistance);
             PanelHandle nearest = null;
@@ -106,6 +147,12 @@ namespace Molecule_Shapes.View
                     nearest = handle;
                 }
             }
+            return nearest;
+        }
+
+        private void TryGrab(Transform controller, HandState state)
+        {
+            PanelHandle nearest = FindHandle(controller);
             if (nearest == null) return;
 
             state.Grabbed = nearest.PanelRoot;

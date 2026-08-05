@@ -50,6 +50,16 @@ namespace Molecule_Shapes.View
         public Sprite buttonSprite;
         [Range(0, 60)] public int buttonCornerRadius = 10;
 
+        [Header("Hover feedback (readability at VR distance)")]
+        [Tooltip("Grow and outline a button while it's pointed at, so the selected control is obvious " +
+                 "from a distance where the colour tint alone is hard to read.")]
+        public bool hoverFeedback = true;
+        [Tooltip("How much a hovered button grows (1 = no growth).")]
+        [Range(1f, 1.4f)] public float hoverScale = 1.08f;
+        [Tooltip("Outline drawn around a hovered button. Set alpha to 0 to disable the outline.")]
+        public Color hoverOutline = new Color(1f, 1f, 1f, 0.85f);
+        [Range(0f, 12f)] public float hoverOutlineWidth = 3f;
+
         [Header("Spacing (UI units)")]
         public int padding = 20;
         public float rowSpacing = 8f;

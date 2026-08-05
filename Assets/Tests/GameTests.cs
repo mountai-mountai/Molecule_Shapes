@@ -95,7 +95,7 @@ namespace Molecule_Shapes.Tests
         public void IdentifyMolecularGeometry_HasCorrectOptionAmongChoices()
         {
             var gen = new ChallengeGenerator(seed: 7);
-            Challenge c = gen.Next(LearningObjective.IdentifyMolecularGeometry, ChallengeDifficulty.Mixed);
+            Challenge c = gen.Next(LearningObjective.IdentifyMolecularGeometry, ChallengeDifficulty.Hard);
 
             Assert.AreEqual(TaskMode.Identify, c.Task);
             Assert.GreaterOrEqual(c.Options.Count, 2);
@@ -107,7 +107,7 @@ namespace Molecule_Shapes.Tests
         public void IdentifyElectronGeometry_OptionsAreDistinctAndCorrect()
         {
             var gen = new ChallengeGenerator(seed: 11);
-            Challenge c = gen.Next(LearningObjective.IdentifyElectronGeometry, ChallengeDifficulty.Mixed);
+            Challenge c = gen.Next(LearningObjective.IdentifyElectronGeometry, ChallengeDifficulty.Hard);
 
             Assert.AreEqual(TaskMode.Identify, c.Task);
             Assert.IsTrue(c.CheckAnswer(c.CorrectOptionIndex));
@@ -125,8 +125,8 @@ namespace Molecule_Shapes.Tests
             var b = new ChallengeGenerator(seed: 42);
             for (int i = 0; i < 20; i++)
             {
-                Challenge ca = a.Next(LearningObjective.BuildFromAxe, ChallengeDifficulty.Mixed);
-                Challenge cb = b.Next(LearningObjective.BuildFromAxe, ChallengeDifficulty.Mixed);
+                Challenge ca = a.Next(LearningObjective.BuildFromAxe, ChallengeDifficulty.Hard);
+                Challenge cb = b.Next(LearningObjective.BuildFromAxe, ChallengeDifficulty.Hard);
                 Assert.AreEqual(ca.Goal, cb.Goal, $"seed-42 sequences diverged at {i}");
             }
         }

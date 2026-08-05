@@ -50,18 +50,12 @@ namespace Molecule_Shapes.Game
                         basePoints = 150, useTimeBonus = true, timeBonusMax = 100,
                         useAttemptPenalty = true, streakBonusPerLevel = 10
                     };
-                case ChallengeDifficulty.Hard:
+                default:   // Hard
                     return new ScoreRules
                     {
                         basePoints = 250, useTimeBonus = true, timeBonusMax = 150,
                         useAttemptPenalty = true, attemptPenalty = 15,
                         useAccuracyBonus = true, useHintPenalty = true, streakBonusPerLevel = 20
-                    };
-                default:
-                    return new ScoreRules
-                    {
-                        basePoints = 150, useTimeBonus = true, useAttemptPenalty = true,
-                        streakBonusPerLevel = 10
                     };
             }
         }
