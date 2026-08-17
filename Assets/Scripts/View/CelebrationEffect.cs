@@ -130,12 +130,20 @@ namespace Molecule_Shapes.View
             rot.enabled = true;
             rot.z = new ParticleSystem.MinMaxCurve(-3f, 3f);     // tumble
 
+            // Gradual fade rather than a hard cut at the end of the lifetime: hold full opacity briefly,
+            // then ease out over most of the particle's life so the burst dissolves instead of vanishing.
             ParticleSystem.ColorOverLifetimeModule fade = _system.colorOverLifetime;
             fade.enabled = true;
             var gradient = new Gradient();
             gradient.SetKeys(
                 new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
+                new[]
+                {
+                    new GradientAlphaKey(1f, 0f),
+                    new GradientAlphaKey(1f, 0.25f),
+                    new GradientAlphaKey(0.55f, 0.6f),
+                    new GradientAlphaKey(0f, 1f)
+                });
             fade.color = new ParticleSystem.MinMaxGradient(gradient);
 
             var psRenderer = go.GetComponent<ParticleSystemRenderer>();

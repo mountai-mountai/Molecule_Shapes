@@ -66,6 +66,11 @@ namespace Molecule_Shapes.Game
                 // Same electron geometry = same steric number (any bond/lone-pair split summing to it).
                 countsOk = x >= 1 && (x + e) == Goal.StericNumber;
             }
+            else if (Match == MatchMode.SameAngles)
+            {
+                // Correct when the molecule genuinely shows the angles the prompt described.
+                countsOk = x >= 2 && MoleculeGoal.IdealAngles(x, e) == Goal.ApproxAngles;
+            }
             else // GeometryName: any valid config whose shape name matches the goal's
             {
                 countsOk = MoleculeGoal.TryGetGeometry(x, e, out MoleculeGeometry geo)
@@ -103,11 +108,11 @@ namespace Molecule_Shapes.Game
                         $"Build a molecule with {goal.ElectronGeometryName} electron geometry.");
 
                 case LearningObjective.BuildFromAngles:
-                    // Angles are set by the ELECTRON geometry, so any molecule with the right steric
-                    // number is a correct answer (seesaw and trigonal bipyramidal genuinely share
-                    // 90/120/180). Requires settling, since the formed angles are the point.
-                    return Build(objective, goal, MatchMode.ElectronGeometry, true,
-                        $"Build a molecule with bond angles of {goal.ApproxAngles}.");
+                    // Judged on the angles themselves: anything that really shows them counts (seesaw and
+                    // trigonal bipyramidal both show 90° and 120°). Requires settling - the formed angles
+                    // are the point.
+                    return Build(objective, goal, MatchMode.SameAngles, true,
+                        $"Build a molecule with {goal.ApproxAngles}.");
 
                 case LearningObjective.BuildRealMolecule:
                     // Formula-only prompt (no AXE) - see CreateReal, which carries the formula/name.

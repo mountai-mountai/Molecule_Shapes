@@ -90,7 +90,7 @@ namespace Molecule_Shapes.View
         {
             if (gameAudio != null) return;
             gameAudio = GetComponent<GameAudio>();
-            if (gameAudio == null) gameAudio = FindFirstObjectByType<GameAudio>(FindObjectsInactive.Exclude);
+            if (gameAudio == null) gameAudio = FindAnyObjectByType<GameAudio>(FindObjectsInactive.Exclude);
         }
 
         private void EnsureStyle() => _style = style != null ? style : (_style != null ? _style : PanelStyle.CreateDefault());

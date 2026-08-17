@@ -47,8 +47,12 @@ namespace Molecule_Shapes.Game
         ExactCounts,        // radial atoms (X) AND radial lone pairs (E) must both match the goal
         GeometryName,       // the resulting molecular-geometry name must match (several X/E can satisfy it,
                             // e.g. Linear = AX2 or AX2E3) - the right granularity when the prompt is a name
-        ElectronGeometry    // the electron geometry must match, i.e. the same steric number (X+E) - any
+        ElectronGeometry,   // the electron geometry must match, i.e. the same steric number (X+E) - any
                             // arrangement of bonds/lone pairs summing to it counts
+        SameAngles          // the built molecule must show the SAME bond angles as the goal. Shapes that
+                            // genuinely share an angle set (seesaw and trigonal bipyramidal both show
+                            // 90° and 120°) are all accepted; ones that don't (linear's single 180°) are
+                            // not - so an angle prompt can never have a wrong "right" answer
     }
 
     // Difficulty tier - selects which shapes are eligible and the default ScoreRules preset. Cumulative

@@ -247,6 +247,73 @@ namespace Molecule_Shapes.Tests
         }
 
         [Test]
+        public void RealGeometry_ReproducesTheMeasuredBondAngles()
+        {
+            // The whole point of Real mode: the vectors fed to the attractor must actually subtend the
+            // measured angle, so water settles at 104.5 rather than the ideal 109.5.
+            AssertBondAngle("H2O", 104.5f);
+            AssertBondAngle("NH3", 107f);
+            AssertBondAngle("SO2", 119f);
+            AssertBondAngle("BrF5", 84.8f);
+        }
+
+        // Smallest angle between two BOND directions (the trailing X entries, lone pairs come first).
+        private static void AssertBondAngle(string formula, float expectedDegrees)
+        {
+            RealMoleculeSpec spec = null;
+            foreach (RealMoleculeSpec m in RealMoleculeSpec.All) if (m.Formula == formula) spec = m;
+            Assert.IsNotNull(spec, $"{formula} missing");
+
+            var vectors = RealGeometry.Build(spec.X, spec.E, spec.RealAngle, spec.RealSecondaryAngle);
+            Assert.IsNotNull(vectors, $"{formula} should have a real construction");
+            Assert.AreEqual(spec.X + spec.E, vectors.Count, $"{formula} vector count must match X+E");
+
+            float smallest = 180f;
+            for (int i = spec.E; i < vectors.Count; i++)
+                for (int j = i + 1; j < vectors.Count; j++)
+                {
+                    float dot = math.clamp(math.dot(math.normalize(vectors[i]), math.normalize(vectors[j])), -1f, 1f);
+                    smallest = math.min(smallest, math.degrees(math.acos(dot)));
+                }
+
+            Assert.AreEqual(expectedDegrees, smallest, 0.5f, $"{formula} bond angle");
+        }
+
+        [Test]
+        public void RealAndIdealDescriptions_DescribeTheSameAngles()
+        {
+            // The two sides of the Model/Real comparison must name the same angles in the same order -
+            // otherwise the panel invents a difference (SF4 quoting a 173° axial angle the ideal side
+            // never mentions) or hides one (BrF5 collapsing apical-basal and basal-basal into one value).
+            foreach (RealMoleculeSpec m in RealMoleculeSpec.All)
+            {
+                int idealParts = m.IdealAnglesText.Split(',').Length;
+                int realParts = m.RealAnglesText.Split(',').Length;
+                Assert.AreEqual(idealParts, realParts,
+                    $"{m.Formula}: ideal '{m.IdealAnglesText}' and real '{m.RealAnglesText}' " +
+                    "describe different numbers of angles");
+
+                // Where an angle is labelled (axial-equatorial, apical-basal...), both sides use it.
+                foreach (string label in new[] { "axial-equatorial", "equatorial", "apical-basal", "basal-basal" })
+                    Assert.AreEqual(m.IdealAnglesText.Contains(label), m.RealAnglesText.Contains(label),
+                        $"{m.Formula}: '{label}' appears on only one side of the comparison");
+            }
+        }
+
+        [Test]
+        public void IdealAngles_DontOverAttribute()
+        {
+            // Octahedral is taught as 90 degrees - quoting "90 and 180" over-attributes.
+            Assert.AreEqual("90° angles", new MoleculeGoal(6, 0).ApproxAngles);   // SF6
+            Assert.AreEqual("90° angles", new MoleculeGoal(4, 2).ApproxAngles);   // XeF4, square planar
+            // A two-bond molecule shows exactly one angle, phrased in the singular.
+            Assert.AreEqual("a 109.5° angle", new MoleculeGoal(2, 2).ApproxAngles);  // H2O
+            Assert.AreEqual("a 180° angle", new MoleculeGoal(2, 0).ApproxAngles);    // CO2
+            // Trigonal bipyramidal keeps both of its distinct angles.
+            Assert.AreEqual("90° and 120° angles", new MoleculeGoal(5, 0).ApproxAngles);
+        }
+
+        [Test]
         public void RealMoleculeChallenge_PromptsWithFormulaAndNeedsExactCounts()
         {
             RealMoleculeSpec water = null;

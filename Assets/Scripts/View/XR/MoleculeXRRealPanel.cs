@@ -17,6 +17,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR.Interaction.Toolkit.UI;
 using Molecule_Shapes.Game;
+using Molecule_Shapes.Model;   // VsepRMolecule, RealGeometry
 
 namespace Molecule_Shapes.View
 {
@@ -57,8 +58,15 @@ namespace Molecule_Shapes.View
         private Text _moleculeText, _readoutText;
         private Button _modelButton, _realButton;
 
+        [Header("Real view")]
+        [Tooltip("Bond length used in Real view, in model units (the ideal model uses 10). PhET's Real " +
+                 "screen holds each molecule's true bond length; switching to Model normalises it again.")]
+        [SerializeField] private float realBondLength = 12f;
+
         private int _index;
         private bool _showReal;    // false = Model view, true = Real view
+        private Text _infoText;
+        private bool _showInfo;
 
         private RealMoleculeSpec Current => RealMoleculeSpec.All[
             Mathf.Clamp(_index, 0, RealMoleculeSpec.All.Count - 1)];
@@ -121,7 +129,15 @@ namespace Molecule_Shapes.View
             _moleculeText = PanelUi.MakeSelectorRow(col, _style, selectorHeight, selectorArrowWidth,
                 selectorValueWidth, selectorMinFontSize, () => Step(-1), () => Step(+1));
 
-            PanelUi.MakeButton(col, _style, "Load Molecule", LoadCurrent, height: buttonHeight);
+            // Load + a "?" that reveals the molecule's full name and where it turns up in the world.
+            Transform loadRow = PanelUi.MakeRow(col, buttonHeight, _style.buttonSpacing, forceExpandWidth: false);
+            PanelUi.MakeButton(loadRow, _style, "Load Molecule", LoadCurrent, fixedWidth: selectorValueWidth);
+            PanelUi.MakeButton(loadRow, _style, "?", () => { _showInfo = !_showInfo; Refresh(); },
+                               fixedWidth: selectorArrowWidth);
+
+            _infoText = PanelUi.MakeLabel(col, _style, "", _style.subtitleFontSize, FontStyle.Normal,
+                                          TextAnchor.UpperLeft, _style.subtitleColor, readoutHeight);
+            _infoText.gameObject.SetActive(false);
 
             // Model / Real view toggle - the two are mutually exclusive, and the active one is shown as
             // non-interactable so it reads as "you are here".
@@ -148,10 +164,33 @@ namespace Molecule_Shapes.View
             Refresh();
         }
 
+        // Switching views re-aims the simulation itself: Real mode feeds the attractor the measured
+        // orientations (so water actually settles at 104.5°) and holds the molecule's true bond length;
+        // Model mode clears both overrides and the textbook ideals take over again.
         private void SetView(bool real)
         {
             _showReal = real;
+            ApplyViewToSimulation();
             Refresh();
+        }
+
+        private void ApplyViewToSimulation()
+        {
+            VsepRMolecule molecule = _controller != null ? _controller.Molecule : null;
+            if (molecule == null) return;
+
+            if (_showReal)
+            {
+                RealMoleculeSpec m = Current;
+                molecule.IdealOrientationsOverride =
+                    RealGeometry.Build(m.X, m.E, m.RealAngle, m.RealSecondaryAngle);
+                molecule.BondLengthOverride = realBondLength;
+            }
+            else
+            {
+                molecule.IdealOrientationsOverride = null;
+                molecule.BondLengthOverride = null;
+            }
         }
 
         // Builds the selected molecule in the sim. Suppressed during a scored challenge so it can't be
@@ -165,13 +204,21 @@ namespace Molecule_Shapes.View
             }
             RealMoleculeSpec m = Current;
             _controller.SetConfiguration(m.X, m.E);
+            ApplyViewToSimulation();     // the new molecule needs its own real orientations
             Refresh();
         }
 
         private void Refresh()
         {
             RealMoleculeSpec m = Current;
-            if (_moleculeText != null) _moleculeText.text = $"{m.Formula}  ({m.Name})";
+            // Formula only - the full name lives behind the "?" so the selector stays readable.
+            if (_moleculeText != null) _moleculeText.text = m.Formula;
+
+            if (_infoText != null)
+            {
+                _infoText.gameObject.SetActive(_showInfo);
+                if (_showInfo) _infoText.text = $"{m.Name}\n\n{m.FoundIn}";
+            }
 
             // The active view's button is disabled, so it looks selected rather than pressable.
             if (_modelButton != null) _modelButton.interactable = _showReal;
@@ -184,18 +231,24 @@ namespace Molecule_Shapes.View
 
             if (_showReal)
             {
-                // Real view: lead with the measured value, keep the ideal beside it for comparison.
+                // Real view: lead with the measured value, keep the ideal beside it for comparison. When
+                // the two agree (no lone pairs) say so plainly rather than implying a difference.
+                // Note: some molecules have lone pairs yet still measure at the ideal angle (XeF4's lone
+                // pairs sit opposite each other and cancel), so key this on the measurement, not on E.
+                string note = m.DiffersFromIdeal
+                    ? m.WhyDiffers
+                    : "Here the measured angle matches the model ideal exactly.";
                 _readoutText.text =
                     $"<color={sub}>{m.GeometryName}</color>\n" +
-                    $"Real angles: <color={good}>{m.RealAngles}</color>\n" +
+                    $"Measured: <color={good}>{m.RealAngles}</color>\n" +
                     $"<color={sub}>Model ideal: {m.IdealAngles}</color>\n" +
-                    $"<color={sub}>{m.WhyDiffers}</color>";
+                    $"<color={sub}>{note}</color>";
             }
             else
             {
                 _readoutText.text =
                     $"<color={sub}>{m.GeometryName}</color>\n" +
-                    $"Model angles: <color={good}>{m.IdealAngles}</color>\n" +
+                    $"Model: <color={good}>{m.IdealAngles}</color>\n" +
                     $"<color={sub}>Switch to Real to see the measured angles.</color>";
             }
         }

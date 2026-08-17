@@ -49,7 +49,10 @@ namespace Molecule_Shapes.Game
         //     a molecule sitting at the ideal 109.5 - measured/real angles belong to Real Molecule mode);
         //   * the description is unique per steric number, so a prompt can't describe two different
         //     answers (e.g. seesaw and trigonal bipyramidal both show 90/120/180).
-        public string ApproxAngles => IdealAnglesForSteric(StericNumber);
+        public string ApproxAngles => IdealAngles(X, E);
+
+        /// <summary>Number of bond angles the molecule actually shows: every pair of bonded atoms.</summary>
+        public int BondAngleCount => X * (X - 1) / 2;
 
         public override string ToString() => $"{AxeFormula} ({GeometryName})";
 
@@ -90,16 +93,44 @@ namespace Molecule_Shapes.Game
             return false;
         }
 
-        // The ideal VSEPR angles for a steric number - exactly the values the model settles to, so a
-        // prompt never quotes a number the student can't reproduce on screen.
-        private static string IdealAnglesForSteric(int steric) => steric switch
+        // The ideal VSEPR bond angle(s) a molecule actually shows, quoted the way chemistry courses do:
+        // the characteristic angles between BONDED atoms. Two rules keep these honest:
+        //   * only angles this molecule really has - a 2-bond molecule shows one angle, so AX2E3 (linear)
+        //     is "a 180° angle", never the parent geometry's full 90/120/180 set;
+        //   * 180° is only listed where it's a real, distinct bond angle - octahedral and square planar
+        //     are taught as 90°, so quoting "90° and 180°" over-attributes.
+        // Plurality follows the actual count of bond angles.
+        public static string IdealAngles(int x, int e)
         {
-            2 => "a 180° angle",
-            3 => "120° angles",
-            4 => "109.5° angles",
-            5 => "90°, 120°, and 180° angles",
-            6 => "90° and 180° angles",
-            _ => "—"
-        };
+            int steric = x + e;
+            if (x < 2) return "—";                     // no angle exists with fewer than two bonds
+            bool one = x * (x - 1) / 2 == 1;           // exactly one bond angle
+
+            // Two bonds: the angle is set by the parent electron geometry.
+            if (x == 2)
+            {
+                string v = steric switch
+                {
+                    2 => "180",
+                    3 => "120",
+                    4 => "109.5",
+                    _ => "180"                          // AX2E3 - both bonds axial
+                };
+                return $"a {v}° angle";
+            }
+
+            return steric switch
+            {
+                3 => Plural("120", one),                                  // trigonal planar
+                4 => Plural("109.5", one),                                // tetrahedral / pyramidal
+                5 => x == 3 ? "90° angles"                                // T-shaped
+                            : "90° and 120° angles",                      // trig bipyramidal / seesaw
+                6 => "90° angles",                                        // octahedral / square planar /
+                _ => "—"                                                  // square pyramidal
+            };
+        }
+
+        private static string Plural(string value, bool singular) =>
+            singular ? $"a {value}° angle" : $"{value}° angles";
     }
 }
