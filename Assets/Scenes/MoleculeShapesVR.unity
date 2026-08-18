@@ -413,6 +413,11 @@ GameObject:
   - component: {fileID: 484111688}
   - component: {fileID: 484111689}
   - component: {fileID: 484111690}
+  - component: {fileID: 484111691}
+  - component: {fileID: 484111692}
+  - component: {fileID: 484111694}
+  - component: {fileID: 484111693}
+  - component: {fileID: 484111695}
   m_Layer: 0
   m_Name: Molecule
   m_TagString: Untagged
@@ -742,6 +747,7 @@ MonoBehaviour:
   cycleBondButtonBinding: <XRController>{RightHand}/secondaryButton
   atomPickRadius: 3
   lonePairPickRadius: 4
+  panelGrabController: {fileID: 484111689}
 --- !u!114 &484111685
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -755,8 +761,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.MoleculeXRUiPanel
   style: {fileID: 11400000, guid: 94e66436c573532429495705ddaa627b, type: 2}
-  panelWorldOffset: {x: 0.35, y: 0, z: 0}
-  panelEulerAngles: {x: 0, y: 0, z: 0}
+  panelWorldOffset: {x: 0.35, y: 0, z: 0.1}
+  panelEulerAngles: {x: 0, y: 10, z: 0}
   panelSizeMeters: {x: 0.34, y: 0.66}
   canvasScale: 0.001
   movable: 1
@@ -791,9 +797,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: MoleculeShapes.XR::Molecule_Shapes.View.MoleculeXRGamePanel
   style: {fileID: 11400000, guid: 94e66436c573532429495705ddaa627b, type: 2}
-  panelWorldOffset: {x: -0.45, y: 0, z: 0}
-  panelEulerAngles: {x: 0, y: 0, z: 0}
-  panelSizeMeters: {x: 0.34, y: 0.79}
+  panelWorldOffset: {x: -0.45, y: 0, z: 0.1}
+  panelEulerAngles: {x: 0, y: -10, z: 0}
+  panelSizeMeters: {x: 0.34, y: 0.91}
   canvasScale: 0.001
   movable: 1
   handleThickness: 0.02
@@ -806,14 +812,15 @@ MonoBehaviour:
   selectorHeight: 40
   selectorArrowWidth: 48
   selectorValueWidth: 190
+  selectorMinFontSize: 11
   startRowHeight: 20
   promptHeight: 80
   answerButtonHeight: 50
   actionRowHeight: 20
   feedbackHeight: 30
   showDifficultySelector: 1
-  defaultObjective: 1
-  defaultDifficulty: 3
+  defaultObjective: 2
+  defaultDifficulty: 0
   multilineBreakdown: 1
 --- !u!114 &484111687
 MonoBehaviour:
@@ -901,6 +908,8 @@ MonoBehaviour:
   leftGripAction: {fileID: -6131295136447488360, guid: c348712bda248c246b8c49b3db54643f, type: 3}
   rightGripAction: {fileID: 187161793506945269, guid: c348712bda248c246b8c49b3db54643f, type: 3}
   maxRayDistance: 5
+  moleculeGrabInteractable: {fileID: 484111682}
+  dragController: {fileID: 484111684}
 --- !u!114 &484111690
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -923,6 +932,122 @@ MonoBehaviour:
   lightColor: {r: 1, g: 1, b: 1, a: 1}
   lightIntensity: 1.75
   lightEulerAngles: {x: 60.3, y: -14.8, z: 0}
+--- !u!114 &484111691
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 87efe0b9569579c4c94470bf3e5417cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes.XR::Molecule_Shapes.View.MoleculeXRSettingsPanel
+  style: {fileID: 0}
+  gameAudio: {fileID: 0}
+  panelWorldOffset: {x: 0.72, y: 0, z: -0.3}
+  panelEulerAngles: {x: 0, y: 50, z: 0}
+  panelSizeMeters: {x: 0.34, y: 0.72}
+  canvasScale: 0.001
+  movable: 1
+  handleThickness: 0.02
+  handleWidthFraction: 0.6
+  handleColor: {r: 0.6666667, g: 0.627451, b: 0.6117647, a: 1}
+  titleHeight: 48
+  sectionHeight: 30
+  rowHeight: 46
+  checkboxSize: 32
+  selectorHeight: 42
+  selectorArrowWidth: 40
+  selectorValueWidth: 150
+  selectorMinFontSize: 11
+  helpHeight: 120
+--- !u!114 &484111692
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 85c6ca16115753e4aa0f2f83797e8805, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.GameAudio
+  correctClips: []
+  incorrectClips: []
+  celebrationClips: []
+  volume: 1
+  celebrateAtFraction: 0.6
+--- !u!114 &484111693
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa3ee62d76655064ab2493c54ed8a4db, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.CelebrationEffect
+  customEffect: {fileID: 0}
+  viewCamera: {fileID: 0}
+  distance: 0.8
+  heightOffset: 0.4
+  celebrateAtFraction: 0.7
+  particleCount: 90
+  particleSize: 0.018
+  lifetime: 2
+  speed: 0.8
+  colorA: {r: 1, g: 0.85, b: 0.25, a: 1}
+  colorB: {r: 0.35, g: 0.8, b: 1, a: 1}
+--- !u!114 &484111694
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1115a839a95e7942b5df1d3621c63b1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes::Molecule_Shapes.View.MoleculeGrabCollider
+  marginModelUnits: 2.5
+  minRadiusModelUnits: 4
+  disableBoxCollider: 1
+--- !u!114 &484111695
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 484111674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f9adc83d8c7fd64691be66880a576cc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoleculeShapes.XR::Molecule_Shapes.View.MoleculeXRRealPanel
+  style: {fileID: 0}
+  panelWorldOffset: {x: -0.85, y: 0, z: -0.3}
+  panelEulerAngles: {x: 0, y: -50, z: 0}
+  panelSizeMeters: {x: 0.4, y: 0.7}
+  canvasScale: 0.001
+  movable: 1
+  handleThickness: 0.02
+  handleWidthFraction: 0.6
+  handleColor: {r: 0.6666667, g: 0.627451, b: 0.6117647, a: 1}
+  titleHeight: 44
+  subtitleHeight: 22
+  selectorHeight: 20
+  selectorArrowWidth: 44
+  selectorValueWidth: 190
+  selectorMinFontSize: 11
+  buttonHeight: 22
+  readoutHeight: 50
+  realBondLength: 12
 --- !u!1001 &623712241
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1287,6 +1412,7 @@ MonoBehaviour:
   background: {fileID: 484111690}
   vrBackgroundColor: {r: 0, g: 0, b: 0, a: 0}
   blend: 1
+  startPreset: 2
   toggleDuration: 0.35
   scrubSpeed: 1.35
   holdThreshold: 0.25
