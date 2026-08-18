@@ -68,8 +68,10 @@ namespace Molecule_Shapes.Game
             }
             else if (Match == MatchMode.SameAngles)
             {
-                // Correct when the molecule genuinely shows the angles the prompt described.
-                countsOk = x >= 2 && MoleculeGoal.IdealAngles(x, e) == Goal.ApproxAngles;
+                // Correct when the molecule genuinely shows the angle VALUES the prompt described -
+                // compared by value, not by wording, so singular/plural phrasing can't reject a
+                // legitimate answer.
+                countsOk = x >= 2 && MoleculeGoal.AngleKeyFor(x, e) == Goal.AngleKey;
             }
             else // GeometryName: any valid config whose shape name matches the goal's
             {
@@ -83,6 +85,16 @@ namespace Molecule_Shapes.Game
         }
 
         // --- Identify judging -----------------------------------------------------------------------
+
+        /// <summary>True when several different molecules legitimately satisfy this challenge, so a
+        /// repeated prompt should ask for one that hasn't been used yet.</summary>
+        public bool AllowsSeveralAnswers =>
+            Match == MatchMode.SameAngles || Match == MatchMode.ElectronGeometry;
+
+        /// <summary>Identity of the ANSWER this challenge wants, for tracking what's already been used
+        /// (angle prompts share an answer across singular/plural wording, so key on the angle values).</summary>
+        public string AngleOrGoalKey =>
+            Match == MatchMode.SameAngles ? Goal.AngleKey : Goal.ToString();
 
         public bool CheckAnswer(int optionIndex) =>
             Task == TaskMode.Identify && optionIndex == CorrectOptionIndex;

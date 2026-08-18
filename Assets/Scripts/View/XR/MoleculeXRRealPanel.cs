@@ -145,10 +145,15 @@ namespace Molecule_Shapes.View
             _modelButton = PanelUi.MakeButton(viewRow, _style, "Model", () => SetView(false));
             _realButton = PanelUi.MakeButton(viewRow, _style, "Real", () => SetView(true));
 
+            // The readout is the ONLY flexible element, so it soaks up whatever space the fixed-height
+            // rows leave. That's what makes the height fields behave like the other panels': buttons stay
+            // exactly at their set heights and the (variable-length) text takes the remainder, instead of
+            // a trailing spacer competing with it and the buttons stretching to fill.
             _readoutText = PanelUi.MakeLabel(col, _style, "", _style.bodyFontSize, FontStyle.Normal,
                                              TextAnchor.UpperLeft, _style.textColor, readoutHeight);
-
-            PanelUi.AddFlexibleSpacer(col);
+            LayoutElement readoutLayout = _readoutText.GetComponent<LayoutElement>();
+            readoutLayout.minHeight = readoutHeight;
+            readoutLayout.flexibleHeight = 1f;
 
             if (movable) PanelUi.AddHandle(_panelRoot.transform, panelSizeMeters, handleThickness,
                                            handleColor, handleWidthFraction);
@@ -182,13 +187,13 @@ namespace Molecule_Shapes.View
             if (_showReal)
             {
                 RealMoleculeSpec m = Current;
-                molecule.IdealOrientationsOverride =
-                    RealGeometry.Build(m.X, m.E, m.RealAngle, m.RealSecondaryAngle);
+                molecule.SetRealOrientations(
+                    RealGeometry.Build(m.X, m.E, m.RealAngle, m.RealSecondaryAngle), m.X, m.E);
                 molecule.BondLengthOverride = realBondLength;
             }
             else
             {
-                molecule.IdealOrientationsOverride = null;
+                molecule.ClearRealOrientations();
                 molecule.BondLengthOverride = null;
             }
         }
@@ -203,7 +208,7 @@ namespace Molecule_Shapes.View
                 return;
             }
             RealMoleculeSpec m = Current;
-            _controller.SetConfiguration(m.X, m.E);
+            _controller.SetConfiguration(m.X, m.E, m.BondOrder);   // draws CO2/SO2 with double bonds
             ApplyViewToSimulation();     // the new molecule needs its own real orientations
             Refresh();
         }

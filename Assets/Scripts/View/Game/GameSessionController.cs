@@ -135,6 +135,12 @@ namespace Molecule_Shapes.View
         {
             _revertPending = false;
 
+            // A challenge is always posed against the IDEAL model. If the player had loaded a real
+            // molecule, its measured orientations and bond length would otherwise carry into the game
+            // and skew every angle (a tetrahedral build inheriting ammonia's 107°), so clear them.
+            _molecule.ClearRealOrientations();
+            _molecule.BondLengthOverride = null;
+
             // Programmatic molecule changes here must not be counted as player attempts.
             _suppressEditCount = true;
             if (challenge.Task == TaskMode.Build)

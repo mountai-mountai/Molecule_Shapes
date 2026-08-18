@@ -42,13 +42,19 @@ namespace Molecule_Shapes.Game
         public readonly string IdealAnglesText;
         public readonly string RealAnglesText;
 
+        /// <summary>Order of the bonds to the central atom (1 single, 2 double, 3 triple), so a loaded
+        /// molecule is drawn with its real bonding - CO2 as O=C=O rather than two single sticks. Purely
+        /// visual: a multiple bond is still one electron domain, so the geometry is unchanged.</summary>
+        public readonly int BondOrder;
+
         public RealMoleculeSpec(string formula, string name, int x, int e, ChallengeDifficulty tier,
                                 float realAngle, string idealAngles, string realAngles, string foundIn,
-                                float realSecondaryAngle = -1f)
+                                float realSecondaryAngle = -1f, int bondOrder = 1)
         {
             Formula = formula; Name = name; X = x; E = e; Tier = tier;
             RealAngle = realAngle; RealSecondaryAngle = realSecondaryAngle;
             IdealAnglesText = idealAngles; RealAnglesText = realAngles; FoundIn = foundIn;
+            BondOrder = bondOrder;
         }
 
         public string RealAngles => RealAnglesText;
@@ -84,12 +90,13 @@ namespace Molecule_Shapes.Game
             new("BH3", "Borane", 3, 0, ChallengeDifficulty.Easy, 120f,
                 idealAngles: "120°", realAngles: "120°",
                 foundIn: "A laboratory reagent; too reactive to sit around, so it's usually handled as diborane."),
-            new("NH3", "Ammonia", 3, 1, ChallengeDifficulty.Easy, 107f,
-                idealAngles: "109.5°", realAngles: "107°",
+            new("NH3", "Ammonia", 3, 1, ChallengeDifficulty.Easy, 106.7f,
+                idealAngles: "109.5°", realAngles: "106.7°",
                 foundIn: "Fertilizer and household cleaners - the sharp smell in glass cleaner."),
             new("CO2", "Carbon dioxide", 2, 0, ChallengeDifficulty.Easy, 180f,
                 idealAngles: "180°", realAngles: "180°",
-                foundIn: "Exhaled breath, the fizz in soda, and the greenhouse gas driving climate change."),
+                foundIn: "Exhaled breath, the fizz in soda, and the greenhouse gas driving climate change.",
+                bondOrder: 2),
 
             // Medium - advanced / AP
             new("SF6", "Sulfur hexafluoride", 6, 0, ChallengeDifficulty.Medium, 90f,
@@ -112,7 +119,8 @@ namespace Molecule_Shapes.Game
             // Hard - octet-expanding / lone-pair-rich
             new("SO2", "Sulfur dioxide", 2, 1, ChallengeDifficulty.Hard, 119.5f,
                 idealAngles: "120°", realAngles: "119.5°",
-                foundIn: "A volcanic gas and a preservative on dried fruit; a cause of acid rain."),
+                foundIn: "A volcanic gas and a preservative on dried fruit; a cause of acid rain.",
+                bondOrder: 2),
             new("ClF3", "Chlorine trifluoride", 3, 2, ChallengeDifficulty.Hard, 87.5f,
                 idealAngles: "90° axial-equatorial", realAngles: "87.5° axial-equatorial",
                 foundIn: "Ferociously reactive; used to clean semiconductor manufacturing equipment."),

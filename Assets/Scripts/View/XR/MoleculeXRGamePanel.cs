@@ -263,9 +263,22 @@ namespace Molecule_Shapes.View
             if (_hintButton != null) _hintButton.interactable = inRound && !Session.CurrentSolved;
         }
 
+        // "Right angles, but you already used that molecule" - shown while the challenge stays open so
+        // the player reaches for a different valid answer.
+        private string _shownRepeatNotice;
+
+        private void RefreshRepeatNotice()
+        {
+            string notice = Session != null ? Session.RepeatAnswerNotice : null;
+            if (notice == _shownRepeatNotice) return;
+            _shownRepeatNotice = notice;
+            if (!string.IsNullOrEmpty(notice)) SetFeedback(notice, _style.badColor);
+        }
+
         private void RefreshInfoLine()
         {
             RefreshButtonStates();
+            RefreshRepeatNotice();
             if (_infoText == null) return;
             if (Session == null || Session.Mode != GameMode.Challenge)
             {

@@ -236,11 +236,15 @@ namespace Molecule_Shapes.View
         // budget). Used by the game layer to display a target molecule (e.g. for Identify challenges)
         // or to seed a real-molecule preset. Lone pairs are added first so they're never starved
         // of the shared radial budget.
-        public void SetConfiguration(int x, int e)
+        public void SetConfiguration(int x, int e) => SetConfiguration(x, e, bondOrder: 1);
+
+        // bondOrder draws the real bonding of a loaded molecule (CO2 as O=C=O). Visual only - a multiple
+        // bond is still one electron domain, so the geometry is identical either way.
+        public void SetConfiguration(int x, int e, int bondOrder)
         {
             ResetMolecule();
             for (int i = 0; i < e; i++) if (!AddLonePair()) break;
-            for (int i = 0; i < x; i++) if (!AddBondedAtom()) break;
+            for (int i = 0; i < x; i++) if (!AddBondedAtom(bondOrder)) break;
         }
 
         // Snaps the whole molecule to a fixed distance in front of the camera, so it can be recovered if

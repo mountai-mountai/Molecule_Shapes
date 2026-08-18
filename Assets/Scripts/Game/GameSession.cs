@@ -35,6 +35,15 @@ namespace Molecule_Shapes.Game
         private readonly List<RealMoleculeSpec> _realPlaylist = new();
         private bool _realRound;
         private int _posed;                                     // challenges posed so far this round
+        // (X,E) combinations already accepted this round, keyed by the answer they satisfied. An angle
+        // prompt can have several right answers (109.5° is bent, pyramidal AND tetrahedral), so when the
+        // same prompt comes round again the player has to reach for a different molecule.
+        private readonly HashSet<string> _usedAnswers = new();
+
+        /// <summary>Set when the built molecule is right but was already used for this prompt; the HUD
+        /// shows it and the challenge stays unsolved so the player tries a different molecule.</summary>
+        public string RepeatAnswerNotice { get; private set; }
+
         public bool RoundActive { get; private set; }
         public int RoundLength => _realRound ? _realPlaylist.Count : _playlist.Count;
         public int RoundPosed => _posed;                       // current question number (1..RoundLength)
@@ -89,6 +98,8 @@ namespace Molecule_Shapes.Game
             RoundActive = true;
             CorrectThisRound = 0;
             _posed = 0;
+            _usedAnswers.Clear();
+            RepeatAnswerNotice = null;
 
             StateChanged?.Invoke();
             NextChallenge();
@@ -111,6 +122,9 @@ namespace Molecule_Shapes.Game
             }
             else
             {
+                // One question per shape. Prompts that several shapes share (109.5° = bent, pyramidal and
+                // tetrahedral) are therefore asked once per shape; the repeat-answer guard makes the
+                // player build a DIFFERENT valid molecule each time, so all three answers get practised.
                 _playlist.AddRange(ChallengeGenerator.GoalsForDifficulty(difficulty));
                 Shuffle(_playlist, rng);
             }
@@ -151,6 +165,7 @@ namespace Molecule_Shapes.Game
             CurrentSolved = false;
             EditsThisChallenge = 0;
             HintsThisChallenge = 0;
+            RepeatAnswerNotice = null;
 
             if (_useCountdown) Timer.StartCountDown(_countdownSeconds);
             else Timer.StartCountUp();
@@ -190,6 +205,19 @@ namespace Molecule_Shapes.Game
 
             if (!CurrentSolved && Current.Task == TaskMode.Build && Current.IsSatisfiedBy(molecule))
             {
+                // Right answer, but the same molecule already used for this repeated prompt: ask for a
+                // different one instead of accepting it, so each of the prompt's answers gets built.
+                string key = $"{Current.Objective}:{Current.AngleOrGoalKey}:" +
+                             $"{molecule.RadialAtoms.Count},{molecule.RadialLonePairs.Count}";
+                if (Current.AllowsSeveralAnswers && _usedAnswers.Contains(key))
+                {
+                    RepeatAnswerNotice =
+                        "You already built that one - try a different molecule with the same angles.";
+                    return;
+                }
+
+                _usedAnswers.Add(key);
+                RepeatAnswerNotice = null;
                 RegisterSolve(Accuracy01(molecule));
                 return;
             }

@@ -14,13 +14,32 @@ namespace Molecule_Shapes.Model
         // Optional target orientations for the CENTRAL atom's groups, replacing the textbook VSEPR
         // ideals. Set this (from RealGeometry) to make the molecule settle at a real molecule's measured
         // angles; null restores ideal model behaviour. Ordered lone-pairs-first, like the neighbour list.
-        public IReadOnlyList<float3> IdealOrientationsOverride = null;
+        private IReadOnlyList<float3> _realOrientations;
+        private int _realX = -1, _realE = -1;
 
-        /// <summary>True when the override is active AND matches the current group count, i.e. the
-        /// molecule is really being aimed at measured orientations rather than the VSEPR ideals.</summary>
+        /// <summary>
+        /// Aims the central atom's groups at measured orientations instead of the VSEPR ideals. The
+        /// (x, e) it was built for is remembered and re-checked every frame: a bare count check is NOT
+        /// enough, because different molecules can share a count (ammonia's 3 bonds + 1 lone pair is
+        /// also 4 groups, so a plain tetrahedral molecule would silently inherit ammonia's geometry).
+        /// Pass null to return to ideal model behaviour.
+        /// </summary>
+        public void SetRealOrientations(IReadOnlyList<float3> orientations, int x, int e)
+        {
+            _realOrientations = orientations;
+            _realX = orientations != null ? x : -1;
+            _realE = orientations != null ? e : -1;
+        }
+
+        public void ClearRealOrientations() => SetRealOrientations(null, -1, -1);
+
+        /// <summary>True when the molecule really is being aimed at measured orientations - the override
+        /// exists and the molecule still has exactly the composition it was built for.</summary>
         public bool IsUsingRealOrientations =>
-            IdealOrientationsOverride != null && CentralAtom != null &&
-            GetNeighborCount(CentralAtom) == IdealOrientationsOverride.Count;
+            _realOrientations != null &&
+            RadialAtoms.Count == _realX &&
+            RadialLonePairs.Count == _realE &&
+            _realOrientations.Count == _realX + _realE;
 
         // Least-squares attractor error from the most recent Update. 0 when there are fewer than two
         // radial groups (geometry is trivially settled). Exposed so the game layer can detect when the
@@ -91,12 +110,12 @@ namespace Molecule_Shapes.Model
             // Real-molecule mode: aim the central atom's groups at the measured orientations instead of
             // the VSEPR ideals. Falls back to ideal whenever the override doesn't match the current group
             // count (e.g. mid-edit), so a mismatch can never destabilise the attractor.
-            if (IdealOrientationsOverride != null && atom.IsCentralAtom)
+            if (atom.IsCentralAtom && IsUsingRealOrientations)
             {
                 List<PairGroup> groups = GetNeighbors(atom);
-                if (groups.Count == IdealOrientationsOverride.Count)
+                if (groups.Count == _realOrientations.Count)
                     return new LocalShape(LocalShape.VseprPermutations(groups), atom, groups,
-                                          IdealOrientationsOverride);
+                                          _realOrientations);
             }
             return GetLocalVseprShape(atom);
         }

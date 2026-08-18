@@ -126,9 +126,6 @@ namespace Molecule_Shapes.View
             PanelUi.MakeToggleRow(col, _style, "Panels stay upright", s.PanelsUpright,
                 v => { s.PanelsUpright = v; s.Save(); }, rowHeight, checkboxSize, _style.textColor);
 
-            PanelUi.MakeToggleRow(col, _style, "Terminal lone pairs", s.AllowTerminalLonePairs,
-                v => { s.AllowTerminalLonePairs = v; s.Save(); }, rowHeight, checkboxSize, _style.textColor);
-
             // --- Sound ---
             PanelUi.MakeLabel(col, _style, "Sound", _style.sectionFontSize, FontStyle.Bold,
                               TextAnchor.MiddleLeft, _style.subtitleColor, sectionHeight);
@@ -150,6 +147,11 @@ namespace Molecule_Shapes.View
             // --- Advanced ---
             PanelUi.MakeLabel(col, _style, "Advanced", _style.sectionFontSize, FontStyle.Bold,
                               TextAnchor.MiddleLeft, _style.subtitleColor, sectionHeight);
+
+            // Terminal lone pairs sits here (above the AXE row) so the AXE toggle and the help text its
+            // "?" reveals stay adjacent - nothing gets inserted between the button and its own text.
+            PanelUi.MakeToggleRow(col, _style, "Terminal lone pairs", s.AllowTerminalLonePairs,
+                v => { s.AllowTerminalLonePairs = v; s.Save(); }, rowHeight, checkboxSize, _style.textColor);
 
             Toggle axeToggle = PanelUi.MakeToggleRow(col, _style, "Show AXE modes", s.ShowAxeModes,
                 v => { s.ShowAxeModes = v; s.Save(); }, rowHeight, checkboxSize, _style.textColor);

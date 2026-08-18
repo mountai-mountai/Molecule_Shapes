@@ -1,7 +1,7 @@
 // Builds the ideal-orientation vectors for a REAL molecule - the directions that reproduce its
 // measured bond angles, rather than the textbook VSEPR ideals.
 //
-// Feeding these to the attractor (via VsepRMolecule.IdealOrientationsOverride) makes the simulation
+// Feeding these to the attractor (via VsepRMolecule.SetRealOrientations) makes the simulation
 // actually hold water at 104.5 degrees instead of 109.5, so the Model/Real toggle changes the molecule
 // you can see and measure - not just a number on a panel.
 //

@@ -193,6 +193,52 @@ namespace Molecule_Shapes.Tests
         }
 
         [Test]
+        public void RepeatedAnglePrompt_RequiresADifferentMolecule()
+        {
+            // Easy has three shapes at 109.5°, so the round poses "109.5°" three times. Building the same
+            // shape twice is rejected (RepeatAnswerNotice); a different valid shape is accepted, so all
+            // three answers can be practised across the repeats.
+            var session = new GameSession();
+            session.StartChallengeRun(LearningObjective.BuildFromAngles, ChallengeDifficulty.Easy,
+                                      ScoreRules.Basic(), seed: 8);
+
+            int solvedFirstTry = 0, rejectedRepeats = 0;
+            var builtForPrompt = new Dictionary<string, (int x, int e)>();
+
+            for (int q = 0; q < session.RoundLength; q++)
+            {
+                Challenge c = session.Current;
+                (int x, int e) build = (c.Goal.X, c.Goal.E);
+
+                // If this prompt was already answered with this exact shape, use a different valid one.
+                if (builtForPrompt.TryGetValue(c.Prompt, out var used) && used == build)
+                {
+                    build = AlternativeShapeWithSameAngles(c.Goal);
+                    session.Tick(0.1f, BuildMolecule(used.x, used.e));   // try the used one first...
+                    Assert.IsFalse(session.CurrentSolved, "same shape twice should be rejected");
+                    Assert.IsFalse(string.IsNullOrEmpty(session.RepeatAnswerNotice));
+                    rejectedRepeats++;
+                }
+                else solvedFirstTry++;
+
+                session.Tick(0.1f, BuildMolecule(build.x, build.e));      // ...then a valid one
+                Assert.IsTrue(session.CurrentSolved, $"question {q} should solve with {build}");
+                builtForPrompt[c.Prompt] = build;
+                session.NextChallenge();
+            }
+
+            Assert.Greater(rejectedRepeats, 0, "the 109.5° prompt should repeat and reject a reused shape");
+        }
+
+        // A steric-4 shape distinct from the goal (bent/pyramidal/tetrahedral all show 109.5°).
+        private static (int x, int e) AlternativeShapeWithSameAngles(MoleculeGoal goal)
+        {
+            foreach (var alt in new[] { (4, 0), (3, 1), (2, 2) })
+                if (alt.Item1 != goal.X || alt.Item2 != goal.E) return alt;
+            return (4, 0);
+        }
+
+        [Test]
         public void BuildFromAngles_AcceptsAnyShapeWithThoseAngles()
         {
             // Angles come from the ELECTRON geometry, so "90/120/180" (steric 5) is satisfied by
@@ -206,17 +252,31 @@ namespace Molecule_Shapes.Tests
         }
 
         [Test]
-        public void AnglePrompts_AreUniquePerStericNumber()
+        public void AnglePrompts_NeverDescribeTwoDifferentAnswerSets()
         {
-            // A prompt must never describe two different electron geometries.
-            var byDescription = new Dictionary<string, int>();
+            // Two goals worded the same must accept the same answers - otherwise a prompt would have a
+            // "right" build that the grader rejects. (The reverse is fine: "a 109.5° angle" and
+            // "109.5° angles" differ only in grammar and share an answer key.)
+            var byDescription = new Dictionary<string, string>();
             foreach (MoleculeGoal g in MoleculeGoal.ValidConfigurations)
             {
-                if (byDescription.TryGetValue(g.ApproxAngles, out int steric))
-                    Assert.AreEqual(steric, g.StericNumber, $"'{g.ApproxAngles}' describes two steric numbers");
+                if (byDescription.TryGetValue(g.ApproxAngles, out string key))
+                    Assert.AreEqual(key, g.AngleKey,
+                        $"'{g.ApproxAngles}' describes two different sets of valid answers");
                 else
-                    byDescription[g.ApproxAngles] = g.StericNumber;
+                    byDescription[g.ApproxAngles] = g.AngleKey;
             }
+        }
+
+        [Test]
+        public void AngleMatching_IgnoresSingularPluralWording()
+        {
+            // "Build a molecule with a 109.5° angle" (posed from bent) must accept tetrahedral too -
+            // both genuinely show 109.5° angles, and grammar shouldn't decide correctness.
+            Challenge bent = Challenge.Create(LearningObjective.BuildFromAngles, new MoleculeGoal(2, 2));
+            Assert.IsTrue(bent.IsSatisfiedBy(BuildMolecule(4, 0)), "tetrahedral also shows 109.5°");
+            Assert.IsTrue(bent.IsSatisfiedBy(BuildMolecule(3, 1)), "trigonal pyramidal also shows 109.5°");
+            Assert.IsFalse(bent.IsSatisfiedBy(BuildMolecule(3, 0)), "trigonal planar is 120°");
         }
 
         // --- Real molecules -------------------------------------------------------------------------

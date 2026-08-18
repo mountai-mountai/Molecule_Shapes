@@ -132,5 +132,29 @@ namespace Molecule_Shapes.Game
 
         private static string Plural(string value, bool singular) =>
             singular ? $"a {value}° angle" : $"{value}° angles";
+
+        /// <summary>
+        /// The angle VALUES a molecule shows, independent of how the prompt is worded. Matching on this
+        /// rather than the display text means "a 109.5° angle" and "109.5° angles" are the same answer,
+        /// so a student who builds tetrahedral for a 109.5° prompt isn't rejected on grammar.
+        /// </summary>
+        public string AngleKey => AngleKeyFor(X, E);
+
+        public static string AngleKeyFor(int x, int e)
+        {
+            int steric = x + e;
+            if (x < 2) return "";
+            if (x == 2)
+                return steric switch { 2 => "180", 3 => "120", 4 => "109.5", _ => "180" };
+
+            return steric switch
+            {
+                3 => "120",
+                4 => "109.5",
+                5 => x == 3 ? "90" : "90|120",
+                6 => "90",
+                _ => ""
+            };
+        }
     }
 }
